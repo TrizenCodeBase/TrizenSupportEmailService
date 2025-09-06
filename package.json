@@ -1,0 +1,46 @@
+{
+  "name": "wbc-email-service",
+  "version": "1.0.0",
+  "description": "Standalone Email Service for WhatsApp Broadcast Platform",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "test": "node src/test.js",
+    "test:support": "node src/test-support.js",
+    "build": "echo 'No build step required for Node.js service'",
+    "lint": "eslint src/",
+    "docker:build": "docker build -t wbc-email-service .",
+    "docker:run": "docker run -p 3002:3002 --env-file .env wbc-email-service"
+  },
+  "keywords": [
+    "email",
+    "smtp",
+    "nodemailer",
+    "microservice",
+    "whatsapp-broadcast"
+  ],
+  "author": "WBC Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.21.2",
+    "cors": "^2.8.5",
+    "nodemailer": "^7.0.3",
+    "dotenv": "^16.5.0",
+    "helmet": "^7.1.0",
+    "express-rate-limit": "^7.1.5",
+    "joi": "^17.11.0",
+    "morgan": "^1.10.0",
+    "compression": "^1.7.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "eslint": "^9.9.0",
+    "node-fetch": "^3.3.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+
