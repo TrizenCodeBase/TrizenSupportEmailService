@@ -34,7 +34,14 @@ app.use(helmet({
 // CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
-    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000'];
+    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
+      'http://localhost:3000',
+      'http://localhost:5000',
+      'http://localhost:5001',
+      'https://trizencareersbackend.llp.trizenventures.com',
+      'https://trizencareersfrontend.llp.trizenventures.com',
+      'https://careers.trizenventures.com'
+    ];
     
     // Allow requests with no origin (mobile apps, curl, etc.)
     if (!origin) return callback(null, true);

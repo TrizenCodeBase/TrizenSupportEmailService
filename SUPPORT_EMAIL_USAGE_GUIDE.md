@@ -6,7 +6,8 @@ The Support Email Service is a standalone microservice that sends professional e
 
 ## 🚀 **Service Information**
 
-- **Base URL:** `http://localhost:3002`
+- **Base URL:** `https://trizensupportemailservice.llp.trizenventures.com`
+- **Local Development:** `http://localhost:3002`
 - **From Email:** `support@trizenventures.com`
 - **Authentication:** API Key required
 - **Status:** ✅ Operational and Ready
@@ -32,36 +33,42 @@ X-API-Key: your-api-key
 - **Purpose:** Check if the service is running
 - **Authentication:** Not required
 - **Response:** Service status and health information
+- **Production URL:** `https://trizensupportemailservice.llp.trizenventures.com/health`
 
 ### **2. Test Email Configuration**
 **GET** `/api/support/test-config`
 - **Purpose:** Test SMTP configuration
 - **Authentication:** Required
 - **Response:** Email configuration test results
+- **Production URL:** `https://trizensupportemailservice.llp.trizenventures.com/api/support/test-config`
 
 ### **3. Send Welcome Email**
 **POST** `/api/support/send-welcome`
 - **Purpose:** Send welcome emails to new clients
 - **Authentication:** Required
 - **Use Cases:** New user onboarding, account activation, service introduction
+- **Production URL:** `https://trizensupportemailservice.llp.trizenventures.com/api/support/send-welcome`
 
 ### **4. Send Support Response Email**
 **POST** `/api/support/send-support-response`
 - **Purpose:** Send professional support ticket responses
 - **Authentication:** Required
 - **Use Cases:** Customer support, issue resolution, help desk responses
+- **Production URL:** `https://trizensupportemailservice.llp.trizenventures.com/api/support/send-support-response`
 
 ### **5. Send Custom Email**
 **POST** `/api/support/send-custom`
 - **Purpose:** Send custom messages to clients
 - **Authentication:** Required
 - **Use Cases:** Announcements, updates, personalized communications
+- **Production URL:** `https://trizensupportemailservice.llp.trizenventures.com/api/support/send-custom`
 
 ### **6. Send Bulk Emails**
 **POST** `/api/support/send-bulk`
 - **Purpose:** Send emails to multiple clients
 - **Authentication:** Required
 - **Use Cases:** Newsletter, mass announcements, marketing campaigns
+- **Production URL:** `https://trizensupportemailservice.llp.trizenventures.com/api/support/send-bulk`
 
 ---
 
@@ -212,7 +219,7 @@ X-API-Key: your-api-key
 ```javascript
 // Send welcome email
 const sendWelcomeEmail = async (clientEmail, clientName) => {
-  const response = await fetch('http://localhost:3002/api/support/send-welcome', {
+  const response = await fetch('https://trizensupportemailservice.llp.trizenventures.com/api/support/send-welcome', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -229,7 +236,7 @@ const sendWelcomeEmail = async (clientEmail, clientName) => {
 
 // Send support response
 const sendSupportResponse = async (clientEmail, clientName, inquiry, response) => {
-  const response = await fetch('http://localhost:3002/api/support/send-support-response', {
+  const response = await fetch('https://trizensupportemailservice.llp.trizenventures.com/api/support/send-support-response', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -253,7 +260,7 @@ const sendSupportResponse = async (clientEmail, clientName, inquiry, response) =
 import requests
 
 def send_welcome_email(client_email, client_name):
-    url = "http://localhost:3002/api/support/send-welcome"
+    url = "https://trizensupportemailservice.llp.trizenventures.com/api/support/send-welcome"
     headers = {
         "Content-Type": "application/json",
         "X-API-Key": "trizen-support-email-2024-secure-key-xyz789"
@@ -267,7 +274,7 @@ def send_welcome_email(client_email, client_name):
     return response.json()
 
 def send_support_response(client_email, client_name, inquiry, response):
-    url = "http://localhost:3002/api/support/send-support-response"
+    url = "https://trizensupportemailservice.llp.trizenventures.com/api/support/send-support-response"
     headers = {
         "Content-Type": "application/json",
         "X-API-Key": "trizen-support-email-2024-secure-key-xyz789"
@@ -288,7 +295,7 @@ def send_support_response(client_email, client_name, inquiry, response):
 ```php
 <?php
 function sendWelcomeEmail($clientEmail, $clientName) {
-    $url = "http://localhost:3002/api/support/send-welcome";
+    $url = "https://trizensupportemailservice.llp.trizenventures.com/api/support/send-welcome";
     $data = [
         "clientEmail" => $clientEmail,
         "clientName" => $clientName
@@ -311,7 +318,7 @@ function sendWelcomeEmail($clientEmail, $clientName) {
 }
 
 function sendSupportResponse($clientEmail, $clientName, $inquiry, $response) {
-    $url = "http://localhost:3002/api/support/send-support-response";
+    $url = "https://trizensupportemailservice.llp.trizenventures.com/api/support/send-support-response";
     $data = [
         "clientEmail" => $clientEmail,
         "clientName" => $clientName,
@@ -528,6 +535,26 @@ curl -X GET http://localhost:3002/api/support/test-config \
 - ✅ Microsoft 365 SMTP integration
 - ✅ API key authentication
 - ✅ Comprehensive error handling
+
+---
+
+## 🌐 **Production Status**
+
+**✅ LIVE AND OPERATIONAL**
+
+- **Production URL:** `https://trizensupportemailservice.llp.trizenventures.com`
+- **Health Status:** [Check Service Health](https://trizensupportemailservice.llp.trizenventures.com/health)
+- **Last Updated:** September 6, 2025
+- **Environment:** Production
+- **Status:** Healthy and Operational
+
+### **Production API Endpoints:**
+- **Health Check:** `GET https://trizensupportemailservice.llp.trizenventures.com/health`
+- **Test Config:** `GET https://trizensupportemailservice.llp.trizenventures.com/api/support/test-config`
+- **Send Welcome:** `POST https://trizensupportemailservice.llp.trizenventures.com/api/support/send-welcome`
+- **Send Support Response:** `POST https://trizensupportemailservice.llp.trizenventures.com/api/support/send-support-response`
+- **Send Custom:** `POST https://trizensupportemailservice.llp.trizenventures.com/api/support/send-custom`
+- **Send Bulk:** `POST https://trizensupportemailservice.llp.trizenventures.com/api/support/send-bulk`
 
 ---
 

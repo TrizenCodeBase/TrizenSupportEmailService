@@ -114,8 +114,11 @@ docker rmi wbc-email-service:latest
 
 ### **1. Health Check**
 ```bash
-# Test health endpoint
+# Test health endpoint (Local)
 curl http://localhost:3002/health
+
+# Test health endpoint (Production)
+curl https://trizensupportemailservice.llp.trizenventures.com/health
 
 # Expected response:
 {
@@ -134,8 +137,12 @@ curl http://localhost:3002/health
 
 ### **2. Configuration Test**
 ```bash
-# Test email configuration
+# Test email configuration (Local)
 curl -X GET http://localhost:3002/api/support/test-config \
+  -H "X-API-Key: trizen-support-email-2024-secure-key-xyz789"
+
+# Test email configuration (Production)
+curl -X GET https://trizensupportemailservice.llp.trizenventures.com/api/support/test-config \
   -H "X-API-Key: trizen-support-email-2024-secure-key-xyz789"
 
 # Expected response:
@@ -152,8 +159,17 @@ curl -X GET http://localhost:3002/api/support/test-config \
 
 ### **3. Test Email Sending**
 ```bash
-# Test welcome email
+# Test welcome email (Local)
 curl -X POST http://localhost:3002/api/support/send-welcome \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: trizen-support-email-2024-secure-key-xyz789" \
+  -d '{
+    "clientEmail": "test@example.com",
+    "clientName": "Test User"
+  }'
+
+# Test welcome email (Production)
+curl -X POST https://trizensupportemailservice.llp.trizenventures.com/api/support/send-welcome \
   -H "Content-Type: application/json" \
   -H "X-API-Key: trizen-support-email-2024-secure-key-xyz789" \
   -d '{
