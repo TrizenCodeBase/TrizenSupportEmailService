@@ -366,12 +366,12 @@ export const sendCustomEmail = async (clientEmail, clientName, subject, message,
       },
       to: clientEmail,
       subject: subject,
-      html: isHtml ? message : getSupportEmailTemplate('custom', {
+      html: isHtml ? message.replace(/\[Name\]/g, clientName) : getSupportEmailTemplate('custom', {
         clientName,
         subject,
         message
       }),
-      text: isHtml ? message.replace(/<[^>]*>/g, '') : message,
+      text: isHtml ? message.replace(/<[^>]*>/g, '').replace(/\[Name\]/g, clientName) : message.replace(/\[Name\]/g, clientName),
       headers: {
         'X-Mailer': 'Trizen Ventures Support System',
         'X-Priority': '3',
@@ -415,12 +415,12 @@ export const sendBulkEmails = async (clients, subject, message, isHtml = false, 
           },
           to: client.email,
           subject: subject,
-          html: isHtml ? message : getSupportEmailTemplate('custom', {
+          html: isHtml ? message.replace(/\[Name\]/g, client.name) : getSupportEmailTemplate('custom', {
             clientName: client.name,
             subject,
             message
           }),
-          text: isHtml ? message.replace(/<[^>]*>/g, '') : message,
+          text: isHtml ? message.replace(/<[^>]*>/g, '').replace(/\[Name\]/g, client.name) : message.replace(/\[Name\]/g, client.name),
           headers: {
             'X-Mailer': 'Trizen Ventures Support System',
             'X-Priority': '3',
