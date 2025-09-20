@@ -400,8 +400,8 @@ export const sendCustomEmail = async (clientEmail, clientName, subject, message,
   }
 };
 
-// Send bulk emails to multiple clients
-export const sendBulkEmails = async (clients, subject, message, isHtml = false) => {
+// Send bulk emails to multiple clients with optional attachments
+export const sendBulkEmails = async (clients, subject, message, isHtml = false, attachments = []) => {
   try {
     const transporter = createTransporter();
     const results = [];
@@ -427,6 +427,34 @@ export const sendBulkEmails = async (clients, subject, message, isHtml = false) 
           }
         };
 
+        // Add attachments if provided
+        if (attachments && attachments.length > 0) {
+          mailOptions.attachments = attachments.map(attachment => {
+            if (typeof attachment === 'string') {
+              // If attachment is a file path
+              return {
+                filename: attachment.split('/').pop() || 'attachment.pdf',
+                path: attachment
+              };
+            } else if (attachment.content) {
+              // If attachment is base64 content
+              return {
+                filename: attachment.filename || 'attachment.pdf',
+                content: attachment.content,
+                encoding: attachment.encoding || 'base64',
+                contentType: attachment.contentType || 'application/pdf'
+              };
+            } else if (attachment.path) {
+              // If attachment has path property
+              return {
+                filename: attachment.filename || attachment.path.split('/').pop() || 'attachment.pdf',
+                path: attachment.path
+              };
+            }
+            return attachment;
+          });
+        }
+
         const info = await transporter.sendMail(mailOptions);
         results.push({
           email: client.email,
@@ -434,7 +462,7 @@ export const sendBulkEmails = async (clients, subject, message, isHtml = false) 
           messageId: info.messageId
         });
         
-        console.log(`✅ Bulk email sent successfully to ${client.email}`);
+        console.log(`✅ Bulk email with attachments sent successfully to ${client.email}`);
         
         // Rate limiting - wait 1 second between emails
         await new Promise(resolve => setTimeout(resolve, 1000));

@@ -9,6 +9,7 @@
     "dev": "nodemon src/index.js",
     "test": "node src/test.js",
     "test:support": "node src/test-support.js",
+    "test:attachments": "node src/test-attachments.js",
     "build": "echo 'No build step required for Node.js service'",
     "lint": "eslint src/",
     "docker:build": "docker build -t wbc-email-service .",

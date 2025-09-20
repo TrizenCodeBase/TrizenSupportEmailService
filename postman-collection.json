@@ -1,0 +1,144 @@
+{
+  "info": {
+    "name": "Trizen Ventures Email Service - Bulk Emails with Attachments",
+    "description": "Complete collection for testing bulk email functionality with PDF and image attachments",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://trizensupportemailservice.llp.trizenventures.com/health",
+          "protocol": "https",
+          "host": ["trizensupportemailservice", "llp", "trizenventures", "com"],
+          "path": ["health"]
+        }
+      }
+    },
+    {
+      "name": "Test Email Configuration",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "X-API-Key",
+            "value": "trizen-support-email-2024-secure-key-xyz789"
+          }
+        ],
+        "url": {
+          "raw": "https://trizensupportemailservice.llp.trizenventures.com/api/support/test-config",
+          "protocol": "https",
+          "host": ["trizensupportemailservice", "llp", "trizenventures", "com"],
+          "path": ["api", "support", "test-config"]
+        }
+      }
+    },
+    {
+      "name": "Bulk Email - Single PDF Attachment",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-API-Key",
+            "value": "trizen-support-email-2024-secure-key-xyz789"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clients\": [\n    {\n      \"email\": \"test1@example.com\",\n      \"name\": \"Candidate 1\"\n    },\n    {\n      \"email\": \"test2@example.com\",\n      \"name\": \"Candidate 2\"\n    }\n  ],\n  \"subject\": \"MERN Stack Intern Assignment - Trizen Ventures\",\n  \"message\": \"Dear [Name],\\n\\nThank you for your interest in the MERN Stack Intern position at Trizen Ventures. We are pleased to inform you that you have been selected for the next phase of our evaluation process.\\n\\nAs part of our selection process, we would like you to complete a technical assignment that will help us assess your skills in MERN stack development. The assignment details and requirements are attached to this email in PDF format.\\n\\nPlease review the assignment carefully and submit your completed work within the specified deadline. This assignment will be a key factor in our final selection decision.\\n\\nIf you have any questions about the assignment or need clarification on any requirements, please don't hesitate to reach out to us.\\n\\nWe look forward to reviewing your submission and wish you the best of luck!\\n\\nBest regards,\\nTrizen Ventures HR Team\",\n  \"isHtml\": false,\n  \"attachments\": [\n    {\n      \"filename\": \"MERN_Stack_Assignment.pdf\",\n      \"content\": \"JVBERi0xLjQKJcOkw7zDtsO8CjIgMCBvYmoKPDwKL0xlbmd0aCAzIDAgUgovVHlwZSAvUGFnZQo+PgpzdHJlYW0KQlQKL0YxIDEyIFRmCjcyIDcyMCBUZAooVGVzdCBBc3NpZ25tZW50KSBUagoKRVQKRVQKZW5kc3RyZWFtCmVuZG9iagoKMyAwIG9iago0NQplbmRvYmoKCjEgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFsyIDAgUl0KL0NvdW50IDEKL01lZGlhQm94IFswIDAgNTk1IDg0Ml0KPj4KZW5kb2JqCgo0IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9TdWJ0eXBlIC9UeXBlMQovQmFzZUZvbnQgL0hlbHZldGljYQo+PgplbmRvYmoKCnhyZWYKMCA1CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDI2MiAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDUKL1Jvb3QgMSAwIFIKPj4Kc3RhcnR4cmVmCzM1NQolJUVPRgo=\",\n      \"encoding\": \"base64\",\n      \"contentType\": \"application/pdf\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "https://trizensupportemailservice.llp.trizenventures.com/api/support/send-bulk",
+          "protocol": "https",
+          "host": ["trizensupportemailservice", "llp", "trizenventures", "com"],
+          "path": ["api", "support", "send-bulk"]
+        }
+      }
+    },
+    {
+      "name": "Bulk Email - PDF + Logo Attachments",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-API-Key",
+            "value": "trizen-support-email-2024-secure-key-xyz789"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clients\": [\n    {\n      \"email\": \"test1@example.com\",\n      \"name\": \"Candidate 1\"\n    },\n    {\n      \"email\": \"test2@example.com\",\n      \"name\": \"Candidate 2\"\n    },\n    {\n      \"email\": \"test3@example.com\",\n      \"name\": \"Candidate 3\"\n    }\n  ],\n  \"subject\": \"MERN Stack Intern Assignment - Trizen Ventures\",\n  \"message\": \"Dear [Name],\\n\\nThank you for your interest in the MERN Stack Intern position at Trizen Ventures. We are pleased to inform you that you have been selected for the next phase of our evaluation process.\\n\\nAs part of our selection process, we would like you to complete a technical assignment that will help us assess your skills in MERN stack development. The assignment details and requirements are attached to this email in PDF format.\\n\\nPlease review the assignment carefully and submit your completed work within the specified deadline. This assignment will be a key factor in our final selection decision.\\n\\nIf you have any questions about the assignment or need clarification on any requirements, please don't hesitate to reach out to us.\\n\\nWe look forward to reviewing your submission and wish you the best of luck!\\n\\nBest regards,\\nTrizen Ventures HR Team\",\n  \"isHtml\": false,\n  \"attachments\": [\n    {\n      \"filename\": \"MERN_Stack_Assignment.pdf\",\n      \"content\": \"JVBERi0xLjQKJcOkw7zDtsO8CjIgMCBvYmoKPDwKL0xlbmd0aCAzIDAgUgovVHlwZSAvUGFnZQo+PgpzdHJlYW0KQlQKL0YxIDEyIFRmCjcyIDcyMCBUZAooVGVzdCBBc3NpZ25tZW50KSBUagoKRVQKRVQKZW5kc3RyZWFtCmVuZG9iagoKMyAwIG9iago0NQplbmRvYmoKCjEgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFsyIDAgUl0KL0NvdW50IDEKL01lZGlhQm94IFswIDAgNTk1IDg0Ml0KPj4KZW5kb2JqCgo0IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9TdWJ0eXBlIC9UeXBlMQovQmFzZUZvbnQgL0hlbHZldGljYQo+PgplbmRvYmoKCnhyZWYKMCA1CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDI2MiAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDUKL1Jvb3QgMSAwIFIKPj4Kc3RhcnR4cmVmCzM1NQolJUVPRgo=\",\n      \"encoding\": \"base64\",\n      \"contentType\": \"application/pdf\"\n    },\n    {\n      \"filename\": \"Trizen_Ventures_Logo.png\",\n      \"content\": \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==\",\n      \"encoding\": \"base64\",\n      \"contentType\": \"image/png\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "https://trizensupportemailservice.llp.trizenventures.com/api/support/send-bulk",
+          "protocol": "https",
+          "host": ["trizensupportemailservice", "llp", "trizenventures", "com"],
+          "path": ["api", "support", "send-bulk"]
+        }
+      }
+    },
+    {
+      "name": "Bulk Email - No Attachments",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-API-Key",
+            "value": "trizen-support-email-2024-secure-key-xyz789"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clients\": [\n    {\n      \"email\": \"test1@example.com\",\n      \"name\": \"Candidate 1\"\n    }\n  ],\n  \"subject\": \"Test Email - No Attachments\",\n  \"message\": \"Dear [Name],\\n\\nThis is a test email without any attachments.\\n\\nBest regards,\\nTrizen Ventures\",\n  \"isHtml\": false\n}"
+        },
+        "url": {
+          "raw": "https://trizensupportemailservice.llp.trizenventures.com/api/support/send-bulk",
+          "protocol": "https",
+          "host": ["trizensupportemailservice", "llp", "trizenventures", "com"],
+          "path": ["api", "support", "send-bulk"]
+        }
+      }
+    },
+    {
+      "name": "Bulk Email - Multiple File Types",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-API-Key",
+            "value": "trizen-support-email-2024-secure-key-xyz789"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"clients\": [\n    {\n      \"email\": \"test@example.com\",\n      \"name\": \"Test Candidate\"\n    }\n  ],\n  \"subject\": \"Test - Multiple File Types\",\n  \"message\": \"Dear [Name],\\n\\nPlease find the attached files: assignment PDF, company logo, and instructions.\\n\\nBest regards,\\nTrizen Ventures\",\n  \"isHtml\": false,\n  \"attachments\": [\n    {\n      \"filename\": \"assignment.pdf\",\n      \"content\": \"JVBERi0xLjQKJcOkw7zDtsO8CjIgMCBvYmoKPDwKL0xlbmd0aCAzIDAgUgovVHlwZSAvUGFnZQo+PgpzdHJlYW0KQlQKL0YxIDEyIFRmCjcyIDcyMCBUZAooVGVzdCBBc3NpZ25tZW50KSBUagoKRVQKRVQKZW5kc3RyZWFtCmVuZG9iagoKMyAwIG9iago0NQplbmRvYmoKCjEgMCBvYmoKPDwKL1R5cGUgL1BhZ2VzCi9LaWRzIFsyIDAgUl0KL0NvdW50IDEKL01lZGlhQm94IFswIDAgNTk1IDg0Ml0KPj4KZW5kb2JqCgo0IDAgb2JqCjw8Ci9UeXBlIC9Gb250Ci9TdWJ0eXBlIC9UeXBlMQovQmFzZUZvbnQgL0hlbHZldGljYQo+PgplbmRvYmoKCnhyZWYKMCA1CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAwOSAwMDAwMCBuIAowMDAwMDAwMDU4IDAwMDAwIG4gCjAwMDAwMDAxMTUgMDAwMDAgbiAKMDAwMDAwMDI2MiAwMDAwMCBuIAp0cmFpbGVyCjw8Ci9TaXplIDUKL1Jvb3QgMSAwIFIKPj4Kc3RhcnR4cmVmCzM1NQolJUVPRgo=\",\n      \"encoding\": \"base64\",\n      \"contentType\": \"application/pdf\"\n    },\n    {\n      \"filename\": \"logo.png\",\n      \"content\": \"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==\",\n      \"encoding\": \"base64\",\n      \"contentType\": \"image/png\"\n    },\n    {\n      \"filename\": \"instructions.txt\",\n      \"content\": \"VGVzdCBpbnN0cnVjdGlvbnMgZm9yIHRoZSBhc3NpZ25tZW50Lg==\",\n      \"encoding\": \"base64\",\n      \"contentType\": \"text/plain\"\n    }\n  ]\n}"
+        },
+        "url": {
+          "raw": "https://trizensupportemailservice.llp.trizenventures.com/api/support/send-bulk",
+          "protocol": "https",
+          "host": ["trizensupportemailservice", "llp", "trizenventures", "com"],
+          "path": ["api", "support", "send-bulk"]
+        }
+      }
+    }
+  ]
+}

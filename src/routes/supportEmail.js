@@ -41,7 +41,22 @@ const bulkEmailSchema = Joi.object({
   ).min(1).max(100).required(),
   subject: Joi.string().min(1).max(200).required(),
   message: Joi.string().min(1).max(5000).required(),
-  isHtml: Joi.boolean().optional().default(false)
+  isHtml: Joi.boolean().optional().default(false),
+  attachments: Joi.array().items(
+    Joi.alternatives().try(
+      Joi.string(), // File path
+      Joi.object({
+        filename: Joi.string().required(),
+        content: Joi.string().required(),
+        encoding: Joi.string().optional().default('base64'),
+        contentType: Joi.string().optional().default('application/pdf')
+      }),
+      Joi.object({
+        filename: Joi.string().required(),
+        path: Joi.string().required()
+      })
+    )
+  ).optional().default([])
 });
 
 // Test email configuration endpoint
@@ -194,10 +209,10 @@ router.post('/send-bulk', async (req, res) => {
       });
     }
 
-    const { clients, subject, message, isHtml } = value;
+    const { clients, subject, message, isHtml, attachments } = value;
 
-    // Send bulk emails
-    const result = await sendBulkEmails(clients, subject, message, isHtml);
+    // Send bulk emails with attachments
+    const result = await sendBulkEmails(clients, subject, message, isHtml, attachments);
     
     res.json({
       success: true,
