@@ -49,11 +49,13 @@ const bulkEmailSchema = Joi.object({
         filename: Joi.string().required(),
         content: Joi.string().required(),
         encoding: Joi.string().optional().default('base64'),
-        contentType: Joi.string().optional().default('application/pdf')
+        contentType: Joi.string().optional().default('application/pdf'),
+        cid: Joi.string().optional() // Content-ID for embedded images
       }),
       Joi.object({
         filename: Joi.string().required(),
-        path: Joi.string().required()
+        path: Joi.string().required(),
+        cid: Joi.string().optional() // Content-ID for embedded images
       })
     )
   ).optional().default([])

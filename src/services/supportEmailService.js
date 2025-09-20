@@ -438,18 +438,32 @@ export const sendBulkEmails = async (clients, subject, message, isHtml = false, 
               };
             } else if (attachment.content) {
               // If attachment is base64 content
-              return {
+              const attachmentObj = {
                 filename: attachment.filename || 'attachment.pdf',
                 content: attachment.content,
                 encoding: attachment.encoding || 'base64',
                 contentType: attachment.contentType || 'application/pdf'
               };
+              
+              // Add CID for embedded images
+              if (attachment.cid) {
+                attachmentObj.cid = attachment.cid;
+              }
+              
+              return attachmentObj;
             } else if (attachment.path) {
               // If attachment has path property
-              return {
+              const attachmentObj = {
                 filename: attachment.filename || attachment.path.split('/').pop() || 'attachment.pdf',
                 path: attachment.path
               };
+              
+              // Add CID for embedded images
+              if (attachment.cid) {
+                attachmentObj.cid = attachment.cid;
+              }
+              
+              return attachmentObj;
             }
             return attachment;
           });
