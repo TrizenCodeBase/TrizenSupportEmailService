@@ -233,6 +233,59 @@ const getSupportEmailTemplate = (type, data) => {
         </html>
       `;
     
+    case 'otp':
+      return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Your One-Time Password - Trizen Ventures</title>
+          ${baseStyle}
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">🔐 Trizen Ventures</div>
+              <h1 style="margin: 0; font-size: 28px;">Your One-Time Password (OTP)</h1>
+            </div>
+            <div class="content">
+              <p style="font-size: 16px; margin-bottom: 24px;">Hello ${data.firstName ? ` ${data.firstName}` : ''},</p>
+              
+              <p>Here is your one-time password (OTP) for verification:</p>
+              
+              <div style="text-align: center; margin: 32px 0;">
+                <div style="display: inline-block; padding: 16px 32px; background: #f8fafc; border: 2px dashed #1e40af; border-radius: 8px;">
+                  <span style="font-size: 32px; font-weight: bold; letter-spacing: 4px; color: #1e40af;">${data.otp}</span>
+                </div>
+              </div>
+              
+              <div style="background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 16px; margin: 20px 0;">
+                <strong>⚠️ Important:</strong>
+                <ul style="margin: 8px 0; padding-left: 20px;">
+                  <li>This OTP will expire in ${data.expiryMins} minutes</li>
+                  <li>Do not share this OTP with anyone</li>
+                  <li>Our team will never ask for your OTP</li>
+                </ul>
+              </div>
+              
+              <p style="margin-top: 32px;">
+                Best regards,<br>
+                <strong>Trizen Ventures Security Team</strong>
+              </p>
+            </div>
+            <div class="footer">
+              <p><strong>Trizen Ventures</strong></p>
+              <p>If you did not request this OTP, please ignore this email.</p>
+              <p style="margin-top: 16px; font-size: 12px;">
+                © ${new Date().getFullYear()} Trizen Ventures. All rights reserved.
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+    
     default:
       return '';
   }
@@ -504,6 +557,66 @@ export const sendBulkEmails = async (clients, subject, message, isHtml = false, 
   }
 };
 
+// Send OTP email
+export const sendOtpEmail = async (email, otp, firstName = '', expiryMins = 10) => {
+  try {
+    const transporter = createTransporter();
+    
+    const mailOptions = {
+      from: {
+        name: 'Trizen Ventures Security',
+        address: 'support@trizenventures.com'
+      },
+      to: email,
+      subject: '🔐 Your Verification Code - Trizen Ventures',
+      html: getSupportEmailTemplate('otp', { otp, firstName, expiryMins }),
+      text: `
+Your One-Time Password (OTP) - Trizen Ventures
+
+Hello${firstName ? ` ${firstName}` : ''},
+
+Here is your one-time password (OTP) for verification:
+
+${otp}
+
+Important:
+- This OTP will expire in ${expiryMins} minutes
+- Do not share this OTP with anyone
+- Our team will never ask for your OTP
+
+If you did not request this OTP, please ignore this email.
+
+Best regards,
+Trizen Ventures Security Team
+      `,
+      headers: {
+        'X-Mailer': 'Trizen Ventures Security System',
+        'X-Priority': '1', // High priority for OTP emails
+      }
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ OTP email sent successfully to ${email}`);
+    console.log('Message ID:', info.messageId);
+    
+    return { 
+      success: true, 
+      messageId: info.messageId,
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('❌ Error sending OTP email:', error);
+    
+    if (error.code === 'EAUTH') {
+      console.error('Authentication failed. Check SMTP credentials.');
+    } else if (error.code === 'ECONNECTION') {
+      console.error('Connection failed. Check SMTP host and port.');
+    }
+    
+    throw new Error(`Failed to send OTP email: ${error.message}`);
+  }
+};
+
 // Test email configuration
 export const testEmailConfig = async () => {
   try {
@@ -544,5 +657,6 @@ export default {
   sendWelcomeEmail,
   sendCustomEmail,
   sendBulkEmails,
+  sendOtpEmail,
   testEmailConfig
 };
