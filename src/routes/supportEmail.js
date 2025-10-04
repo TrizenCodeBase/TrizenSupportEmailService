@@ -5,7 +5,8 @@ import {
   sendWelcomeEmail, 
   sendCustomEmail, 
   sendBulkEmails,
-  testEmailConfig 
+  testEmailConfig,
+  sendOtpEmail
 } from '../services/supportEmailService.js';
 
 const router = express.Router();
@@ -59,6 +60,20 @@ const bulkEmailSchema = Joi.object({
       })
     )
   ).optional().default([])
+});
+
+const otpEmailSchema = Joi.object({
+  email: Joi.string().email().required().messages({
+    'string.email': 'Please provide a valid email address',
+    'any.required': 'Email address is required'
+  }),
+  otp: Joi.string().length(6).pattern(/^\d+$/).required().messages({
+    'string.length': 'OTP must be exactly 6 digits',
+    'string.pattern.base': 'OTP must contain only numbers',
+    'any.required': 'OTP is required'
+  }),
+  firstName: Joi.string().max(100).optional(),
+  expiryMins: Joi.number().min(1).max(60).optional().default(10)
 });
 
 // Test email configuration endpoint
@@ -227,6 +242,40 @@ router.post('/send-bulk', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to send bulk emails',
+      error: error.message
+    });
+  }
+});
+
+// Send OTP email endpoint
+router.post('/send-otp', async (req, res) => {
+  try {
+    // Validate input
+    const { error, value } = otpEmailSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        details: error.details[0].message
+      });
+    }
+
+    const { email, otp, firstName, expiryMins } = value;
+
+    // Send OTP email
+    const result = await sendOtpEmail(email, otp, firstName, expiryMins);
+    
+    res.json({
+      success: true,
+      message: 'OTP email sent successfully',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('Send OTP email error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send OTP email',
       error: error.message
     });
   }

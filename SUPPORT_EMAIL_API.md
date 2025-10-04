@@ -8,6 +8,7 @@ A standalone email service for sending professional emails from `support@trizenv
 - **Welcome Emails** - Welcome new clients to Trizen Ventures
 - **Custom Emails** - Send custom messages to clients
 - **Bulk Emails** - Send emails to multiple clients efficiently
+- **OTP Emails** - Send OTP (sends only, does not verify)
 - **Email Templates** - Professional HTML templates with Trizen Ventures branding
 - **Rate Limiting** - Built-in protection against spam
 - **Security** - API key authentication and CORS protection
@@ -117,6 +118,7 @@ RATE_LIMIT_MAX_REQUESTS=100
 | POST | `/send-welcome` | Send welcome email | Yes |
 | POST | `/send-custom` | Send custom email | Yes |
 | POST | `/send-bulk` | Send bulk emails | Yes |
+| POST | `/send-otp` | Send OTP | Yes |
 
 ### Authentication
 
@@ -198,6 +200,46 @@ const response = await fetch('http://localhost:3002/api/support/send-bulk', {
     isHtml: false
   })
 });
+```
+
+### 5. Send OTP Email
+
+```javascript
+const response = await fetch('http://localhost:3002/api/support/send-otp', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-API-Key': 'your-api-key'
+  },
+  body: JSON.stringify({
+    email: 'client@example.com',
+    otp: '123456',
+    firstName: 'John', // optional
+    expiryMins: 10 // optional, defaults to 10
+  })
+});
+```
+
+Request Body Schema:
+```json
+{
+  "email": "string, required, valid email",
+  "otp": "string, required, 6 digits",
+  "firstName": "string, optional, max 100 chars",
+  "expiryMins": "number, optional, 1-60, defaults to 10"
+}
+```
+
+Success Response:
+```json
+{
+  "success": true,
+  "message": "OTP email sent successfully",
+  "data": {
+    "messageId": "...",
+    "timestamp": "2024-01-20T12:00:00.000Z"
+  }
+}
 ```
 
 ## 🧪 Testing
