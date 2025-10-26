@@ -1,6 +1,7 @@
 import express from 'express';
 import Joi from 'joi';
 import { 
+  sendApplicationConfirmationEmail,
   sendSupportResponseEmail, 
   sendWelcomeEmail, 
   sendCustomEmail, 
@@ -11,6 +12,14 @@ import {
 const router = express.Router();
 
 // Validation schemas
+const applicationConfirmationSchema = Joi.object({
+  applicantEmail: Joi.string().email().required(),
+  applicantName: Joi.string().min(1).max(100).required(),
+  jobTitle: Joi.string().min(1).max(200).required(),
+  jobId: Joi.string().min(1).max(100).required(),
+  appliedDate: Joi.string().optional()
+});
+
 const supportResponseSchema = Joi.object({
   clientEmail: Joi.string().email().required(),
   clientName: Joi.string().min(1).max(100).required(),
@@ -85,6 +94,46 @@ router.get('/test-config', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to test support email configuration',
+      error: error.message
+    });
+  }
+});
+
+// Send application confirmation email endpoint
+router.post('/send-application-confirmation', async (req, res) => {
+  try {
+    // Validate input
+    const { error, value } = applicationConfirmationSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        details: error.details[0].message
+      });
+    }
+
+    const { applicantEmail, applicantName, jobTitle, jobId, appliedDate } = value;
+
+    // Send application confirmation email
+    const result = await sendApplicationConfirmationEmail(
+      applicantEmail, 
+      applicantName, 
+      jobTitle, 
+      jobId, 
+      appliedDate
+    );
+    
+    res.json({
+      success: true,
+      message: 'Application confirmation email sent successfully',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('Send application confirmation email error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send application confirmation email',
       error: error.message
     });
   }

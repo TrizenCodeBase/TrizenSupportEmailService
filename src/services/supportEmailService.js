@@ -197,6 +197,145 @@ const getSupportEmailTemplate = (type, data) => {
         </html>
       `;
     
+    case 'application-confirmation':
+      return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Application Confirmation - Trizen Ventures</title>
+          ${baseStyle}
+          <style>
+            .application-details {
+              background-color: #f8fafc;
+              border: 1px solid #e2e8f0;
+              border-radius: 8px;
+              padding: 20px;
+              margin: 20px 0;
+            }
+            .next-steps {
+              background-color: #f0f9ff;
+              border: 1px solid #0ea5e9;
+              border-radius: 8px;
+              padding: 20px;
+              margin: 20px 0;
+            }
+            .detail-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 8px 0;
+              border-bottom: 1px solid #e5e7eb;
+            }
+            .detail-row:last-child {
+              border-bottom: none;
+            }
+            .detail-label {
+              font-weight: 600;
+              color: #374151;
+            }
+            .detail-value {
+              color: #6b7280;
+            }
+            .status-badge {
+              background-color: #dbeafe;
+              color: #1e40af;
+              padding: 4px 12px;
+              border-radius: 20px;
+              font-size: 12px;
+              font-weight: 600;
+            }
+            .step-item {
+              margin: 8px 0;
+              padding-left: 20px;
+              position: relative;
+            }
+            .step-item::before {
+              content: "•";
+              color: #0ea5e9;
+              font-weight: bold;
+              position: absolute;
+              left: 0;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">🚀 Trizen Ventures</div>
+              <h1 style="margin: 0; font-size: 28px;">Application Confirmed!</h1>
+            </div>
+            <div class="content">
+              <p style="font-size: 16px; margin-bottom: 24px;">Hello ${data.applicantName || 'Applicant'},</p>
+              
+              <p style="font-size: 16px; margin-bottom: 24px;">
+                Thank you for your interest in joining our team at <strong>Trizen Ventures</strong>! 
+                We have successfully received your application for the position of <strong>"${data.jobTitle || 'Position'}"</strong> 
+                (Job ID: ${data.jobId || 'N/A'}).
+              </p>
+              
+              <div class="next-steps">
+                <h3 style="margin: 0 0 16px 0; color: #0ea5e9; font-size: 18px;">📋 What happens next:</h3>
+                <div class="step-item">Our HR team will review your application within 2-3 business days</div>
+                <div class="step-item">If your profile matches our requirements, we'll contact you for the next steps</div>
+                <div class="step-item">You may be invited for an interview or assessment</div>
+                <div class="step-item">We'll keep you updated throughout the process</div>
+              </div>
+              
+              <div class="application-details">
+                <h3 style="margin: 0 0 16px 0; color: #374151; font-size: 18px;">📄 Application Details:</h3>
+                <div class="detail-row">
+                  <span class="detail-label">Position:</span>
+                  <span class="detail-value">${data.jobTitle || 'N/A'}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Application ID:</span>
+                  <span class="detail-value">${data.jobId || 'N/A'}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Applied on:</span>
+                  <span class="detail-value">${data.appliedDate || new Date().toLocaleDateString()}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">Status:</span>
+                  <span class="status-badge">Under Review</span>
+                </div>
+              </div>
+              
+              <p style="margin: 24px 0;">
+                If you have any questions about your application or the recruitment process, 
+                please don't hesitate to contact us at 
+                <a href="mailto:support@trizenventures.com" style="color: #1e40af; text-decoration: none;">
+                  <strong>support@trizenventures.com</strong>
+                </a>.
+              </p>
+              
+              <p style="margin: 32px 0 24px 0; font-size: 16px;">
+                We appreciate your interest in <strong>Trizen Ventures</strong> and look forward to potentially welcoming you to our team!
+              </p>
+              
+              <p style="margin-top: 32px;">
+                Best regards,<br>
+                <strong>Trizen Ventures HR Team</strong>
+              </p>
+            </div>
+            <div class="footer">
+              <p><strong>Trizen Ventures</strong></p>
+              <p>Email: support@trizenventures.com</p>
+              <p>Website: https://trizenventures.com</p>
+              <p style="margin-top: 16px; font-size: 12px; color: #9ca3af;">
+                This is an automated confirmation email. Please do not reply to this email.<br>
+                For support, contact us at support@trizenventures.com
+              </p>
+              <p style="margin-top: 16px; font-size: 12px;">
+                © ${new Date().getFullYear()} Trizen Ventures. All rights reserved.
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+    
     case 'custom':
       return `
         <!DOCTYPE html>
@@ -235,6 +374,83 @@ const getSupportEmailTemplate = (type, data) => {
     
     default:
       return '';
+  }
+};
+
+// Send application confirmation email
+export const sendApplicationConfirmationEmail = async (applicantEmail, applicantName, jobTitle, jobId, appliedDate = null) => {
+  try {
+    const transporter = createTransporter();
+    
+    const mailOptions = {
+      from: {
+        name: 'Trizen Ventures HR',
+        address: 'support@trizenventures.com'
+      },
+      to: applicantEmail,
+      subject: `Application Confirmed - ${jobTitle} | Trizen Ventures`,
+      html: getSupportEmailTemplate('application-confirmation', {
+        applicantName,
+        jobTitle,
+        jobId,
+        appliedDate: appliedDate || new Date().toLocaleDateString()
+      }),
+      text: `
+Application Confirmation - Trizen Ventures
+
+Hello ${applicantName || 'Applicant'},
+
+Thank you for your interest in joining our team at Trizen Ventures! 
+We have successfully received your application for the position of "${jobTitle}" (Job ID: ${jobId}).
+
+What happens next:
+• Our HR team will review your application within 2-3 business days
+• If your profile matches our requirements, we'll contact you for the next steps
+• You may be invited for an interview or assessment
+• We'll keep you updated throughout the process
+
+Application Details:
+• Position: ${jobTitle}
+• Application ID: ${jobId}
+• Applied on: ${appliedDate || new Date().toLocaleDateString()}
+• Status: Under Review
+
+If you have any questions about your application or the recruitment process, please don't hesitate to contact us at support@trizenventures.com.
+
+We appreciate your interest in Trizen Ventures and look forward to potentially welcoming you to our team!
+
+Best regards,
+Trizen Ventures HR Team
+
+---
+This is an automated confirmation email. Please do not reply to this email.
+For support, contact us at support@trizenventures.com
+      `,
+      headers: {
+        'X-Mailer': 'Trizen Ventures Application System',
+        'X-Priority': '3',
+      }
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Application confirmation email sent successfully to ${applicantEmail}`);
+    console.log('Message ID:', info.messageId);
+    
+    return { 
+      success: true, 
+      messageId: info.messageId,
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('❌ Error sending application confirmation email:', error);
+    
+    if (error.code === 'EAUTH') {
+      console.error('Authentication failed. Check SMTP credentials.');
+    } else if (error.code === 'ECONNECTION') {
+      console.error('Connection failed. Check SMTP host and port.');
+    }
+    
+    throw new Error(`Failed to send application confirmation email: ${error.message}`);
   }
 };
 
@@ -540,6 +756,7 @@ export const testEmailConfig = async () => {
 };
 
 export default {
+  sendApplicationConfirmationEmail,
   sendSupportResponseEmail,
   sendWelcomeEmail,
   sendCustomEmail,

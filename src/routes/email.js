@@ -40,7 +40,24 @@ const customEmailSchema = Joi.object({
     'any.required': 'Subject is required'
   }),
   html: Joi.string().min(1).optional(),
-  text: Joi.string().min(1).optional()
+  text: Joi.string().min(1).optional(),
+  attachments: Joi.array().items(
+    Joi.alternatives().try(
+      Joi.string(), // File path
+      Joi.object({
+        filename: Joi.string().required(),
+        content: Joi.string().required(),
+        encoding: Joi.string().valid('base64').default('base64'),
+        contentType: Joi.string().required(),
+        cid: Joi.string().optional()
+      }),
+      Joi.object({
+        filename: Joi.string().required(),
+        path: Joi.string().required(),
+        cid: Joi.string().optional()
+      })
+    )
+  ).optional()
 }).custom((value, helpers) => {
   if (!value.html && !value.text) {
     return helpers.error('custom.missingContent');
@@ -223,10 +240,10 @@ router.post('/send-custom', async (req, res) => {
       });
     }
 
-    const { to, subject, html, text } = value;
+    const { to, subject, html, text, attachments } = value;
 
     try {
-      const result = await sendCustomEmail(to, subject, html, text);
+      const result = await sendCustomEmail(to, subject, html, text, attachments);
       
       console.log(`✅ Custom email sent successfully to ${to}`);
       
@@ -348,6 +365,119 @@ router.post('/send-bulk', async (req, res) => {
     res.status(500).json({ 
       success: false,
       error: 'An unexpected error occurred during bulk email processing.' 
+    });
+  }
+});
+
+// Dynamic bulk email endpoint with per-recipient data
+router.post('/send-dynamic-bulk', async (req, res) => {
+  try {
+    const { recipients, subject, htmlTemplate, textTemplate, attachments } = req.body;
+
+    // Validation
+    if (!recipients || !Array.isArray(recipients) || recipients.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Recipients array is required and must not be empty'
+      });
+    }
+
+    if (!subject || (!htmlTemplate && !textTemplate)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Subject and either HTML or text template are required'
+      });
+    }
+
+    // Validate each recipient has required fields
+    for (let i = 0; i < recipients.length; i++) {
+      const recipient = recipients[i];
+      if (!recipient.email || !recipient.name) {
+        return res.status(400).json({
+          success: false,
+          error: `Recipient at index ${i} is missing required fields (email, name)`
+        });
+      }
+    }
+
+    const results = [];
+    const errors = [];
+
+    // Send emails in batches to avoid overwhelming the SMTP server
+    const batchSize = 5;
+    for (let i = 0; i < recipients.length; i += batchSize) {
+      const batch = recipients.slice(i, i + batchSize);
+      
+      const batchPromises = batch.map(async (recipient) => {
+        try {
+          // Replace placeholders in templates
+          let personalizedHtml = htmlTemplate;
+          let personalizedText = textTemplate;
+          
+          // Replace common placeholders
+          const placeholders = {
+            '[Candidate Name]': recipient.name,
+            '[Name]': recipient.name,
+            '[Email]': recipient.email,
+            '[Time Slot]': recipient.timeSlot || '[Time Slot]',
+            '[Scheduled teams link]': recipient.interviewLink || '[Scheduled teams link]',
+            '[Interview Link]': recipient.interviewLink || '[Interview Link]'
+          };
+
+          // Replace placeholders in HTML
+          if (personalizedHtml) {
+            Object.entries(placeholders).forEach(([placeholder, value]) => {
+              personalizedHtml = personalizedHtml.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+            });
+          }
+
+          // Replace placeholders in text
+          if (personalizedText) {
+            Object.entries(placeholders).forEach(([placeholder, value]) => {
+              personalizedText = personalizedText.replace(new RegExp(placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), value);
+            });
+          }
+
+          const result = await sendCustomEmail(recipient.email, subject, personalizedHtml, personalizedText, attachments);
+          return { email: recipient.email, name: recipient.name, success: true, result };
+        } catch (error) {
+          return { email: recipient.email, name: recipient.name, success: false, error: error.message };
+        }
+      });
+
+      const batchResults = await Promise.all(batchPromises);
+      
+      batchResults.forEach(result => {
+        if (result.success) {
+          results.push(result);
+        } else {
+          errors.push(result);
+        }
+      });
+
+      // Small delay between batches
+      if (i + batchSize < recipients.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Dynamic bulk email processing completed. ${results.length} sent, ${errors.length} failed.`,
+      data: {
+        total: recipients.length,
+        sent: results.length,
+        failed: errors.length,
+        results: results,
+        errors: errors
+      }
+    });
+
+  } catch (error) {
+    console.error('💥 Send dynamic bulk email error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'An unexpected error occurred during dynamic bulk email processing.' 
     });
   }
 });

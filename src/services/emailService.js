@@ -366,7 +366,7 @@ WhatsApp Broadcast Platform Team
 };
 
 // Send custom email with flexible content
-export const sendCustomEmail = async (to, subject, html, text) => {
+export const sendCustomEmail = async (to, subject, html, text, attachments = []) => {
   try {
     const transporter = createTransporter();
     
@@ -385,6 +385,48 @@ export const sendCustomEmail = async (to, subject, html, text) => {
         'X-Priority': '3', // Normal priority for custom emails
       }
     };
+
+    // Add attachments if provided
+    if (attachments && attachments.length > 0) {
+      mailOptions.attachments = attachments.map(attachment => {
+        if (typeof attachment === 'string') {
+          // If attachment is a file path
+          return {
+            filename: attachment.split('/').pop() || 'attachment.pdf',
+            path: attachment
+          };
+        } else if (attachment.content) {
+          // If attachment is base64 content
+          const attachmentObj = {
+            filename: attachment.filename || 'attachment.pdf',
+            content: attachment.content,
+            encoding: attachment.encoding || 'base64',
+            contentType: attachment.contentType || 'application/pdf'
+          };
+          
+          // Add CID for embedded images
+          if (attachment.cid) {
+            attachmentObj.cid = attachment.cid;
+          }
+          
+          return attachmentObj;
+        } else if (attachment.path) {
+          // If attachment has path property
+          const attachmentObj = {
+            filename: attachment.filename || attachment.path.split('/').pop() || 'attachment.pdf',
+            path: attachment.path
+          };
+          
+          // Add CID for embedded images
+          if (attachment.cid) {
+            attachmentObj.cid = attachment.cid;
+          }
+          
+          return attachmentObj;
+        }
+        return attachment;
+      });
+    }
 
     const info = await transporter.sendMail(mailOptions);
     console.log(`✅ Custom email sent successfully to ${to}`);
