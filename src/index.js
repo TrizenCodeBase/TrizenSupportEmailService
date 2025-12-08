@@ -95,6 +95,14 @@ const apiKeyMiddleware = (req, res, next) => {
     return next();
   }
   
+  // Debug logging (only in development)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔑 API Key Check:');
+    console.log('  Received API Key:', apiKey ? apiKey.substring(0, 10) + '...' : 'NOT PROVIDED');
+    console.log('  Expected API Key:', process.env.API_KEY ? process.env.API_KEY.substring(0, 10) + '...' : 'NOT SET');
+    console.log('  Keys match:', apiKey === process.env.API_KEY);
+  }
+  
   // Check for API key or Bearer token
   if (apiKey === process.env.API_KEY || (authHeader && authHeader.startsWith('Bearer '))) {
     return next();

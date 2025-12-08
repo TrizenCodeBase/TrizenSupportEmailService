@@ -372,6 +372,212 @@ const getSupportEmailTemplate = (type, data) => {
         </html>
       `;
     
+    case 'application-accepted':
+      return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Application Accepted - Trizen Ventures</title>
+          ${baseStyle}
+          <style>
+            .success-badge {
+              background-color: #d1fae5;
+              color: #065f46;
+              padding: 8px 16px;
+              border-radius: 20px;
+              font-size: 14px;
+              font-weight: 600;
+              display: inline-block;
+              margin: 16px 0;
+            }
+            .next-steps {
+              background-color: #f0f9ff;
+              border: 1px solid #0ea5e9;
+              border-radius: 8px;
+              padding: 20px;
+              margin: 20px 0;
+            }
+            .step-item {
+              margin: 12px 0;
+              padding-left: 24px;
+              position: relative;
+            }
+            .step-item::before {
+              content: "✓";
+              color: #0ea5e9;
+              font-weight: bold;
+              position: absolute;
+              left: 0;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">🚀 Trizen Ventures</div>
+              <h1 style="margin: 0; font-size: 28px;">Congratulations! 🎉</h1>
+            </div>
+            <div class="content">
+              <p style="font-size: 16px; margin-bottom: 24px;">Hello ${data.applicantName || 'Applicant'},</p>
+              
+              <p style="font-size: 18px; margin-bottom: 24px;">
+                We are thrilled to inform you that your application for the position of 
+                <strong>"${data.jobTitle || 'Position'}"</strong> (Job ID: ${data.jobId || 'N/A'}) 
+                has been <strong>ACCEPTED</strong>!
+              </p>
+              
+              <div class="success-badge">✓ Application Accepted</div>
+              
+              <div class="next-steps">
+                <h3 style="margin: 0 0 16px 0; color: #0ea5e9; font-size: 18px;">📋 Next Steps:</h3>
+                <div class="step-item">Our HR team will contact you within 2-3 business days to discuss the next steps</div>
+                <div class="step-item">You will receive details about your onboarding process and start date</div>
+                <div class="step-item">Please keep an eye on your email for further communication</div>
+                <div class="step-item">Prepare any required documents as mentioned in the job posting</div>
+              </div>
+              
+              <p style="margin: 24px 0;">
+                We are excited to welcome you to the <strong>Trizen Ventures</strong> team! 
+                Your skills and experience align perfectly with what we're looking for, and we believe 
+                you will be a valuable addition to our organization.
+              </p>
+              
+              <p style="margin: 24px 0;">
+                If you have any questions or need clarification on anything, please don't hesitate to 
+                contact us at 
+                <a href="mailto:support@trizenventures.com" style="color: #1e40af; text-decoration: none;">
+                  <strong>support@trizenventures.com</strong>
+                </a>.
+              </p>
+              
+              <p style="margin: 32px 0 24px 0; font-size: 16px;">
+                Once again, congratulations on your acceptance! We look forward to working with you.
+              </p>
+              
+              <p style="margin-top: 32px;">
+                Best regards,<br>
+                <strong>Trizen Ventures HR Team</strong>
+              </p>
+            </div>
+            <div class="footer">
+              <p><strong>Trizen Ventures</strong></p>
+              <p>Email: support@trizenventures.com</p>
+              <p>Website: https://trizenventures.com</p>
+              <p style="margin-top: 16px; font-size: 12px; color: #9ca3af;">
+                This is an automated email. Please do not reply to this email.<br>
+                For support, contact us at support@trizenventures.com
+              </p>
+              <p style="margin-top: 16px; font-size: 12px;">
+                © ${new Date().getFullYear()} Trizen Ventures. All rights reserved.
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+    
+    case 'application-rejected':
+      return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Application Update - Trizen Ventures</title>
+          ${baseStyle}
+          <style>
+            .feedback-section {
+              background-color: #fef3c7;
+              border: 1px solid #f59e0b;
+              border-radius: 8px;
+              padding: 20px;
+              margin: 20px 0;
+            }
+            .encouragement {
+              background-color: #f0f9ff;
+              border: 1px solid #0ea5e9;
+              border-radius: 8px;
+              padding: 20px;
+              margin: 20px 0;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <div class="logo">🚀 Trizen Ventures</div>
+              <h1 style="margin: 0; font-size: 28px;">Application Update</h1>
+            </div>
+            <div class="content">
+              <p style="font-size: 16px; margin-bottom: 24px;">Hello ${data.applicantName || 'Applicant'},</p>
+              
+              <p style="font-size: 16px; margin-bottom: 24px;">
+                Thank you for your interest in joining <strong>Trizen Ventures</strong> and for taking the time 
+                to apply for the position of <strong>"${data.jobTitle || 'Position'}"</strong> 
+                (Job ID: ${data.jobId || 'N/A'}).
+              </p>
+              
+              <p style="font-size: 16px; margin-bottom: 24px;">
+                After careful consideration of all applications, we regret to inform you that we have decided 
+                to move forward with other candidates whose qualifications more closely match our current needs 
+                for this position.
+              </p>
+              
+              <div class="feedback-section">
+                <h3 style="margin: 0 0 12px 0; color: #92400e; font-size: 16px;">💡 We Appreciate Your Interest</h3>
+                <p style="margin: 0; color: #78350f;">
+                  This decision was not an easy one, and we want you to know that we genuinely appreciate 
+                  the time and effort you invested in your application. We received many qualified applications, 
+                  and the selection process was highly competitive.
+                </p>
+              </div>
+              
+              <div class="encouragement">
+                <h3 style="margin: 0 0 12px 0; color: #0ea5e9; font-size: 16px;">🌟 Keep Growing</h3>
+                <p style="margin: 0; color: #1e40af;">
+                  We encourage you to continue developing your skills and to keep an eye on our career page 
+                  for future opportunities that may be a better fit. We believe that the right opportunity 
+                  is out there for you, and we wish you the very best in your career journey.
+                </p>
+              </div>
+              
+              <p style="margin: 24px 0;">
+                If you have any questions about this decision or would like feedback on your application, 
+                please feel free to reach out to us at 
+                <a href="mailto:support@trizenventures.com" style="color: #1e40af; text-decoration: none;">
+                  <strong>support@trizenventures.com</strong>
+                </a>.
+              </p>
+              
+              <p style="margin: 32px 0 24px 0;">
+                Thank you again for your interest in <strong>Trizen Ventures</strong>. We wish you all the best 
+                in your future endeavors.
+              </p>
+              
+              <p style="margin-top: 32px;">
+                Best regards,<br>
+                <strong>Trizen Ventures HR Team</strong>
+              </p>
+            </div>
+            <div class="footer">
+              <p><strong>Trizen Ventures</strong></p>
+              <p>Email: support@trizenventures.com</p>
+              <p>Website: https://trizenventures.com</p>
+              <p style="margin-top: 16px; font-size: 12px; color: #9ca3af;">
+                This is an automated email. Please do not reply to this email.<br>
+                For support, contact us at support@trizenventures.com
+              </p>
+              <p style="margin-top: 16px; font-size: 12px;">
+                © ${new Date().getFullYear()} Trizen Ventures. All rights reserved.
+              </p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+    
     default:
       return '';
   }
@@ -451,6 +657,146 @@ For support, contact us at support@trizenventures.com
     }
     
     throw new Error(`Failed to send application confirmation email: ${error.message}`);
+  }
+};
+
+// Send application acceptance email
+export const sendApplicationAcceptanceEmail = async (applicantEmail, applicantName, jobTitle, jobId) => {
+  try {
+    const transporter = createTransporter();
+    
+    const mailOptions = {
+      from: {
+        name: 'Trizen Ventures HR',
+        address: 'support@trizenventures.com'
+      },
+      to: applicantEmail,
+      subject: `Congratulations! Application Accepted - ${jobTitle} | Trizen Ventures`,
+      html: getSupportEmailTemplate('application-accepted', {
+        applicantName,
+        jobTitle,
+        jobId
+      }),
+      text: `
+Congratulations! Application Accepted - Trizen Ventures
+
+Hello ${applicantName || 'Applicant'},
+
+We are thrilled to inform you that your application for the position of "${jobTitle}" (Job ID: ${jobId}) has been ACCEPTED!
+
+Next Steps:
+• Our HR team will contact you within 2-3 business days to discuss the next steps
+• You will receive details about your onboarding process and start date
+• Please keep an eye on your email for further communication
+• Prepare any required documents as mentioned in the job posting
+
+We are excited to welcome you to the Trizen Ventures team! Your skills and experience align perfectly with what we're looking for, and we believe you will be a valuable addition to our organization.
+
+If you have any questions or need clarification on anything, please don't hesitate to contact us at support@trizenventures.com.
+
+Once again, congratulations on your acceptance! We look forward to working with you.
+
+Best regards,
+Trizen Ventures HR Team
+
+---
+This is an automated email. Please do not reply to this email.
+For support, contact us at support@trizenventures.com
+      `,
+      headers: {
+        'X-Mailer': 'Trizen Ventures Application System',
+        'X-Priority': '1', // High priority for acceptance emails
+      }
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Application acceptance email sent successfully to ${applicantEmail}`);
+    console.log('Message ID:', info.messageId);
+    
+    return { 
+      success: true, 
+      messageId: info.messageId,
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('❌ Error sending application acceptance email:', error);
+    
+    if (error.code === 'EAUTH') {
+      console.error('Authentication failed. Check SMTP credentials.');
+    } else if (error.code === 'ECONNECTION') {
+      console.error('Connection failed. Check SMTP host and port.');
+    }
+    
+    throw new Error(`Failed to send application acceptance email: ${error.message}`);
+  }
+};
+
+// Send application rejection email
+export const sendApplicationRejectionEmail = async (applicantEmail, applicantName, jobTitle, jobId) => {
+  try {
+    const transporter = createTransporter();
+    
+    const mailOptions = {
+      from: {
+        name: 'Trizen Ventures HR',
+        address: 'support@trizenventures.com'
+      },
+      to: applicantEmail,
+      subject: `Application Update - ${jobTitle} | Trizen Ventures`,
+      html: getSupportEmailTemplate('application-rejected', {
+        applicantName,
+        jobTitle,
+        jobId
+      }),
+      text: `
+Application Update - Trizen Ventures
+
+Hello ${applicantName || 'Applicant'},
+
+Thank you for your interest in joining Trizen Ventures and for taking the time to apply for the position of "${jobTitle}" (Job ID: ${jobId}).
+
+After careful consideration of all applications, we regret to inform you that we have decided to move forward with other candidates whose qualifications more closely match our current needs for this position.
+
+This decision was not an easy one, and we want you to know that we genuinely appreciate the time and effort you invested in your application. We received many qualified applications, and the selection process was highly competitive.
+
+We encourage you to continue developing your skills and to keep an eye on our career page for future opportunities that may be a better fit. We believe that the right opportunity is out there for you, and we wish you the very best in your career journey.
+
+If you have any questions about this decision or would like feedback on your application, please feel free to reach out to us at support@trizenventures.com.
+
+Thank you again for your interest in Trizen Ventures. We wish you all the best in your future endeavors.
+
+Best regards,
+Trizen Ventures HR Team
+
+---
+This is an automated email. Please do not reply to this email.
+For support, contact us at support@trizenventures.com
+      `,
+      headers: {
+        'X-Mailer': 'Trizen Ventures Application System',
+        'X-Priority': '3',
+      }
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Application rejection email sent successfully to ${applicantEmail}`);
+    console.log('Message ID:', info.messageId);
+    
+    return { 
+      success: true, 
+      messageId: info.messageId,
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    console.error('❌ Error sending application rejection email:', error);
+    
+    if (error.code === 'EAUTH') {
+      console.error('Authentication failed. Check SMTP credentials.');
+    } else if (error.code === 'ECONNECTION') {
+      console.error('Connection failed. Check SMTP host and port.');
+    }
+    
+    throw new Error(`Failed to send application rejection email: ${error.message}`);
   }
 };
 
@@ -757,6 +1103,8 @@ export const testEmailConfig = async () => {
 
 export default {
   sendApplicationConfirmationEmail,
+  sendApplicationAcceptanceEmail,
+  sendApplicationRejectionEmail,
   sendSupportResponseEmail,
   sendWelcomeEmail,
   sendCustomEmail,

@@ -2,6 +2,8 @@ import express from 'express';
 import Joi from 'joi';
 import { 
   sendApplicationConfirmationEmail,
+  sendApplicationAcceptanceEmail,
+  sendApplicationRejectionEmail,
   sendSupportResponseEmail, 
   sendWelcomeEmail, 
   sendCustomEmail, 
@@ -68,6 +70,13 @@ const bulkEmailSchema = Joi.object({
       })
     )
   ).optional().default([])
+});
+
+const applicationStatusSchema = Joi.object({
+  applicantEmail: Joi.string().email().required(),
+  applicantName: Joi.string().min(1).max(100).required(),
+  jobTitle: Joi.string().min(1).max(200).required(),
+  jobId: Joi.string().min(1).max(100).required()
 });
 
 // Test email configuration endpoint
@@ -276,6 +285,84 @@ router.post('/send-bulk', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to send bulk emails',
+      error: error.message
+    });
+  }
+});
+
+// Send application acceptance email endpoint
+router.post('/send-application-acceptance', async (req, res) => {
+  try {
+    // Validate input
+    const { error, value } = applicationStatusSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        details: error.details[0].message
+      });
+    }
+
+    const { applicantEmail, applicantName, jobTitle, jobId } = value;
+
+    // Send acceptance email
+    const result = await sendApplicationAcceptanceEmail(
+      applicantEmail, 
+      applicantName, 
+      jobTitle, 
+      jobId
+    );
+    
+    res.json({
+      success: true,
+      message: 'Application acceptance email sent successfully',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('Send application acceptance email error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send application acceptance email',
+      error: error.message
+    });
+  }
+});
+
+// Send application rejection email endpoint
+router.post('/send-application-rejection', async (req, res) => {
+  try {
+    // Validate input
+    const { error, value } = applicationStatusSchema.validate(req.body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation error',
+        details: error.details[0].message
+      });
+    }
+
+    const { applicantEmail, applicantName, jobTitle, jobId } = value;
+
+    // Send rejection email
+    const result = await sendApplicationRejectionEmail(
+      applicantEmail, 
+      applicantName, 
+      jobTitle, 
+      jobId
+    );
+    
+    res.json({
+      success: true,
+      message: 'Application rejection email sent successfully',
+      data: result
+    });
+
+  } catch (error) {
+    console.error('Send application rejection email error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to send application rejection email',
       error: error.message
     });
   }
