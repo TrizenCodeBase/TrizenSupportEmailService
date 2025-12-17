@@ -8,7 +8,8 @@ import {
   sendWelcomeEmail, 
   sendCustomEmail, 
   sendBulkEmails,
-  testEmailConfig 
+  testEmailConfig,
+  sendFinalYearProjectEmail 
 } from '../services/supportEmailService.js';
 
 const router = express.Router();
@@ -40,7 +41,13 @@ const customEmailSchema = Joi.object({
   clientName: Joi.string().min(1).max(100).required(),
   subject: Joi.string().min(1).max(200).required(),
   message: Joi.string().min(1).max(5000).required(),
-  isHtml: Joi.boolean().optional().default(false)
+  isHtml: Joi.boolean().optional().default(false),
+  attachments: Joi.array().items(Joi.object({
+    filename: Joi.string().required(),
+    content: Joi.string().required(),
+    contentType: Joi.string().optional(),
+    cid: Joi.string().optional() // Content-ID for embedded images
+  })).optional()
 });
 
 const bulkEmailSchema = Joi.object({
@@ -235,10 +242,10 @@ router.post('/send-custom', async (req, res) => {
       });
     }
 
-    const { clientEmail, clientName, subject, message, isHtml } = value;
+    const { clientEmail, clientName, subject, message, isHtml, attachments } = value;
 
     // Send custom email
-    const result = await sendCustomEmail(clientEmail, clientName, subject, message, isHtml);
+    const result = await sendCustomEmail(clientEmail, clientName, subject, message, isHtml, attachments);
     
     res.json({
       success: true,
@@ -391,6 +398,41 @@ router.get('/status', async (req, res) => {
       success: false,
       message: 'Failed to check support email service status',
       error: error.message
+    });
+  }
+});
+
+// POST /api/support/send-final-year-project - Send final year project training email
+router.post('/send-final-year-project', async (req, res) => {
+  try {
+    // Validate request body
+    const finalYearProjectSchema = Joi.object({
+      email: Joi.string().email().required()
+    });
+
+    const { error, value } = finalYearProjectSchema.validate(req.body);
+    
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: error.details.map(d => d.message)
+      });
+    }
+
+    const result = await sendFinalYearProjectEmail(value.email);
+
+    res.status(200).json({
+      success: true,
+      message: 'Final year project training email sent successfully',
+      data: result
+    });
+  } catch (error) {
+    console.error('Error sending final year project email:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to send final year project email',
+      details: error.message
     });
   }
 });

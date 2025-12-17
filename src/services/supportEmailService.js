@@ -917,7 +917,7 @@ Website: https://trizenventures.com
 };
 
 // Send custom email to clients
-export const sendCustomEmail = async (clientEmail, clientName, subject, message, isHtml = false) => {
+export const sendCustomEmail = async (clientEmail, clientName, subject, message, isHtml = false, attachments = []) => {
   try {
     const transporter = createTransporter();
     
@@ -939,6 +939,25 @@ export const sendCustomEmail = async (clientEmail, clientName, subject, message,
         'X-Priority': '3',
       }
     };
+
+    // Add attachments if provided
+    if (attachments && attachments.length > 0) {
+      mailOptions.attachments = attachments.map(attachment => {
+        const attachmentObj = {
+          filename: attachment.filename || 'attachment.pdf',
+          content: attachment.content,
+          encoding: 'base64',
+          contentType: attachment.contentType || 'application/pdf'
+        };
+        
+        // Add CID for embedded images
+        if (attachment.cid) {
+          attachmentObj.cid = attachment.cid;
+        }
+        
+        return attachmentObj;
+      });
+    }
 
     const info = await transporter.sendMail(mailOptions);
     console.log(`✅ Custom email sent successfully to ${clientEmail}`);
@@ -1101,6 +1120,140 @@ export const testEmailConfig = async () => {
   }
 };
 
+// Send Final Year Project Training Email
+export const sendFinalYearProjectEmail = async (recipientEmail) => {
+  try {
+    const transporter = createTransporter();
+    
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Final Year Project & Research Training</title>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f4f4f4; padding: 20px 0;">
+          <tr>
+            <td align="center">
+              <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <!-- Header -->
+                <tr>
+                  <td style="background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); padding: 40px 30px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: bold; margin-bottom: 12px; color: #ffffff;">
+                      🚀 Trizen Ventures
+                    </div>
+                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">
+                      Final Year Project & Research Training
+                    </h1>
+                    <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">
+                      End-to-End Deliverables
+                    </p>
+                  </td>
+                </tr>
+                
+                <!-- Content -->
+                <tr>
+                  <td style="padding: 40px 30px;">
+                    <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                      Dear Student,
+                    </p>
+                    
+                    <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                      Your final year project is a key academic milestone and should demonstrate clear understanding, implementation, and research quality.
+                    </p>
+                    
+                    <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
+                      At <strong>Trizen Academy</strong>, we train B.Tech and M.Tech students to complete their final year projects end-to-end, covering every required deliverable from start to submission.
+                    </p>
+                    
+                    <div style="background-color: #f8f9fa; border-left: 4px solid #1e40af; padding: 20px; margin: 0 0 25px 0; border-radius: 4px;">
+                      <h2 style="color: #1e40af; font-size: 18px; margin: 0 0 15px 0; font-weight: bold;">
+                        End-to-End Deliverables Include:
+                      </h2>
+                      <ol style="color: #333333; font-size: 15px; line-height: 1.8; margin: 0; padding-left: 20px;">
+                        <li>Finalized industry-relevant problem statement</li>
+                        <li>Complete working project code using updated technologies</li>
+                        <li>System architecture, flowcharts, and diagrams</li>
+                        <li>PPT, documentation, and final reports (as per college format)</li>
+                        <li>Live demo preparation and explanation</li>
+                        <li>Research paper drafting (IEEE/Scopus standards, low plagiarism)</li>
+                      </ol>
+                    </div>
+                    
+                    <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                      Students work through the entire project lifecycle, ensuring confidence during vivas, reviews, placements, and research discussions.
+                    </p>
+                    
+                    <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                      <strong>Domains include:</strong> CSE, AIML, AI, Blockchain, IoT, ECE, VLSI, Embedded Systems, and more.
+                    </p>
+                    
+                    <!-- Contact Section -->
+                    <div style="background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); border-radius: 8px; padding: 25px; text-align: center; margin: 0 0 20px 0;">
+                      <h3 style="color: #ffffff; font-size: 18px; margin: 0 0 15px 0; font-weight: bold;">
+                        Get Started Today!
+                      </h3>
+                      <p style="color: #ffffff; font-size: 15px; line-height: 1.6; margin: 0 0 15px 0;">
+                        To know more about project formats and training details, contact us:
+                      </p>
+                      <div style="margin: 15px 0 0 0;">
+                        <p style="color: #ffffff; margin: 8px 0; font-size: 15px;">
+                          🌐 <strong>Website:</strong> <a href="https://academy.trizenventures.com" style="color: #ffffff; text-decoration: underline;">academy.trizenventures.com</a>
+                        </p>
+                        <p style="color: #ffffff; margin: 8px 0; font-size: 15px;">
+                          📞 <strong>Phone:</strong> +91 8639648822
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 20px 0 0 0;">
+                      Regards,<br>
+                      <strong>Trizen Academy</strong>
+                    </p>
+                  </td>
+                </tr>
+                
+                <!-- Footer -->
+                <tr>
+                  <td style="background-color: #f8f9fa; padding: 20px 30px; text-align: center; border-top: 1px solid #e9ecef;">
+                    <p style="color: #6c757d; font-size: 13px; margin: 0 0 5px 0;">
+                      © ${new Date().getFullYear()} Trizen Academy. All rights reserved.
+                    </p>
+                    <p style="color: #6c757d; font-size: 12px; margin: 5px 0 0 0;">
+                      This email was sent to ${recipientEmail}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const mailOptions = {
+      from: `"${process.env.EMAIL_FROM_NAME || 'Trizen Academy'}" <${process.env.EMAIL_FROM_ADDRESS || process.env.SMTP_USER}>`,
+      to: recipientEmail,
+      subject: 'Final Year Project & Research Training – End-to-End Deliverables',
+      html: htmlContent,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    
+    return {
+      success: true,
+      messageId: info.messageId,
+      recipient: recipientEmail
+    };
+  } catch (error) {
+    console.error('Error sending final year project email:', error);
+    throw error;
+  }
+};
+
 export default {
   sendApplicationConfirmationEmail,
   sendApplicationAcceptanceEmail,
@@ -1109,5 +1262,6 @@ export default {
   sendWelcomeEmail,
   sendCustomEmail,
   sendBulkEmails,
-  testEmailConfig
+  testEmailConfig,
+  sendFinalYearProjectEmail
 };
