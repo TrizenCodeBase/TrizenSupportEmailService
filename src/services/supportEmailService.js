@@ -337,37 +337,86 @@ const getSupportEmailTemplate = (type, data) => {
       `;
     
     case 'custom':
+      // Find header logo from attachments (look for header logo by filename or cid)
+      let headerLogo = data.headerLogo;
+      
+      // If not passed directly, find from attachments
+      if (!headerLogo && data.attachments && data.attachments.length > 0) {
+        headerLogo = data.attachments.find(a => {
+          const filename = (a.filename || '').toLowerCase();
+          const contentType = (a.contentType || '').toLowerCase();
+          const cid = a.cid || '';
+          return (
+            (contentType.startsWith('image/') && 
+             (filename.includes('header') || filename.includes('logo') || cid === 'header-logo')) ||
+            cid === 'header-logo'
+          );
+        });
+      }
+      
+      // Embed header logo directly in HTML (NOT as attachment)
+      // Use URL if provided (best), otherwise convert base64 to data URI
+      let logoSrc = '';
+      if (headerLogo && headerLogo.url) {
+        // Hosted URL - best for Gmail (no attachment, loads from server)
+        logoSrc = headerLogo.url;
+        console.log('✅ Header logo using hosted URL (best for Gmail):', logoSrc);
+      } else if (headerLogo && headerLogo.content) {
+        // Base64 content - convert to data URI (Gmail may block but won't show as attachment)
+        const contentType = headerLogo.contentType || 'image/png';
+        logoSrc = `data:${contentType};base64,${headerLogo.content}`;
+        console.log('⚠️  Header logo using data URI (Gmail may block images, but won\'t show as attachment)');
+        console.log('💡 For Gmail: Host the image and provide URL instead of base64 content');
+      } else {
+        console.log('⚠️  No header logo found in template');
+      }
+      
+      // Email-safe HTML with tables (works in Gmail, Outlook, etc.)
       return `
         <!DOCTYPE html>
         <html>
         <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
           <title>${data.subject || 'Message from Trizen Ventures'}</title>
-          ${baseStyle}
         </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <div class="logo">🚀 Trizen Ventures</div>
-              <h1 style="margin: 0; font-size: 28px;">${data.subject || 'Important Message'}</h1>
-            </div>
-            <div class="content">
-              <p style="font-size: 16px; margin-bottom: 24px;">Hello ${data.clientName || 'Valued Client'},</p>
-              
-              ${data.message || data.content || 'This is an important message from Trizen Ventures.'}
-              
-              <p style="margin-top: 32px;">
-                Best regards,<br>
-                <strong>Trizen Ventures Team</strong>
-              </p>
-            </div>
-            <div class="footer">
-              <p><strong>Trizen Ventures</strong></p>
-              <p>Email: support@trizenventures.com</p>
-              <p>Website: https://trizenventures.com</p>
-            </div>
-          </div>
+        <body style="margin:0; padding:0; background-color:#f5f5f5; font-family:Arial, sans-serif;">
+          
+          <!-- Email Wrapper Table -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f5;">
+            <tr>
+              <td align="center" style="padding:20px 0;">
+                
+                <!-- Main Container Table -->
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:8px; max-width:600px;">
+                  
+                  ${logoSrc ? `
+                  <!-- Header Logo -->
+                  <tr>
+                    <td align="center" style="padding:0; margin:0; height:120px; overflow:hidden; line-height:0;">
+                      <img 
+                        src="${logoSrc}" 
+                        alt="Trizen Ventures" 
+                        width="600" 
+                        style="display:block; width:100%; max-width:600px; height:120px; object-fit:cover; object-position:center; border:0; outline:none; margin:0; padding:0;" 
+                      />
+                    </td>
+                  </tr>
+                  ` : ''}
+                  
+                  <!-- Message Content -->
+                  <tr>
+                    <td style="padding:30px 20px; font-family:Arial, sans-serif; font-size:16px; line-height:1.6; color:#333333;">
+                      ${data.message || data.content || ''}
+                    </td>
+                  </tr>
+                  
+                </table>
+                
+              </td>
+            </tr>
+          </table>
+          
         </body>
         </html>
       `;
@@ -916,10 +965,101 @@ Website: https://trizenventures.com
   }
 };
 
+// Helper function to convert plain text to HTML
+const convertTextToHtml = (text) => {
+  if (!text) return '';
+  
+  // Escape HTML special characters
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+  
+  // Convert line breaks to <br> tags
+  html = html.replace(/\n/g, '<br>');
+  
+  // Convert double line breaks to paragraphs
+  html = html.replace(/(<br>\s*){2,}/g, '</p><p>');
+  
+  // Wrap in paragraph tags
+  if (!html.startsWith('<p>')) {
+    html = '<p>' + html + '</p>';
+  }
+  
+  return html;
+};
+
 // Send custom email to clients
 export const sendCustomEmail = async (clientEmail, clientName, subject, message, isHtml = false, attachments = []) => {
   try {
     const transporter = createTransporter();
+    
+    // Process message: if not HTML, convert plain text to HTML
+    let processedMessage = message;
+    if (!isHtml) {
+      processedMessage = convertTextToHtml(message);
+    } else {
+      // Replace [Name] placeholder if HTML
+      processedMessage = message.replace(/\[Name\]/g, clientName);
+    }
+    
+    // Find header logo from attachments (look for header/logo image)
+    let headerLogoIndex = -1;
+    
+    if (attachments && attachments.length > 0) {
+      console.log('🔍 Checking attachments for header logo:', attachments.length, 'attachments');
+      
+      attachments.forEach((attachment, index) => {
+        const filename = (attachment.filename || '').toLowerCase();
+        const contentType = (attachment.contentType || '').toLowerCase();
+        const cid = attachment.cid || '';
+        
+        // Detect image type from filename if contentType not set
+        const isImage = contentType.startsWith('image/') || 
+                       filename.endsWith('.png') || 
+                       filename.endsWith('.jpg') || 
+                       filename.endsWith('.jpeg') || 
+                       filename.endsWith('.gif') ||
+                       filename.endsWith('.webp');
+        
+        // Check if this is a header logo (image with header/logo in name or cid)
+        const isHeaderLogo = (
+          (isImage && (filename.includes('header') || filename.includes('logo'))) ||
+          cid === 'header-logo'
+        );
+        
+        console.log(`  Attachment ${index}:`, {
+          filename: attachment.filename,
+          contentType: attachment.contentType || 'not set',
+          isImage,
+          isHeaderLogo,
+          hasContent: !!attachment.content,
+          hasUrl: !!attachment.url
+        });
+        
+        if (isHeaderLogo) {
+          headerLogoIndex = index;
+          // Ensure header logo has a CID for embedding (only if using CID, not URL)
+          if (!attachment.cid && !attachment.url) {
+            attachment.cid = 'header-logo';
+          }
+          console.log(`  ✅ Header logo found at index ${index}`, {
+            hasUrl: !!attachment.url,
+            hasContent: !!attachment.content,
+            url: attachment.url || 'none'
+          });
+        }
+      });
+    }
+    
+    if (headerLogoIndex === -1) {
+      console.log('⚠️  No header logo detected in attachments');
+      console.log('💡 Tip: For best Gmail compatibility, use a hosted URL instead of base64 attachment');
+    } else {
+      console.log(`✅ Header logo detected at index ${headerLogoIndex}`);
+    }
     
     const mailOptions = {
       from: {
@@ -928,11 +1068,30 @@ export const sendCustomEmail = async (clientEmail, clientName, subject, message,
       },
       to: clientEmail,
       subject: subject,
-      html: isHtml ? message.replace(/\[Name\]/g, clientName) : getSupportEmailTemplate('custom', {
-        clientName,
-        subject,
-        message
-      }),
+      html: (() => {
+        // Prepare header logo for template
+        const headerLogoForTemplate = headerLogoIndex >= 0 ? {
+          ...attachments[headerLogoIndex],
+          // Only set CID if using content-based embedding (not URL)
+          ...(attachments[headerLogoIndex].url ? {} : { cid: 'header-logo' })
+        } : null;
+        
+        console.log('📧 Preparing email template:', {
+          hasHeaderLogo: !!headerLogoForTemplate,
+          headerLogoIndex,
+          totalAttachments: attachments.length,
+          headerLogoUrl: headerLogoForTemplate?.url || 'none',
+          headerLogoHasContent: !!headerLogoForTemplate?.content
+        });
+        
+        return getSupportEmailTemplate('custom', {
+          clientName,
+          subject,
+          message: processedMessage,
+          headerLogo: headerLogoForTemplate,
+          attachments: attachments
+        });
+      })(),
       text: isHtml ? message.replace(/<[^>]*>/g, '').replace(/\[Name\]/g, clientName) : message.replace(/\[Name\]/g, clientName),
       headers: {
         'X-Mailer': 'Trizen Ventures Support System',
@@ -940,23 +1099,56 @@ export const sendCustomEmail = async (clientEmail, clientName, subject, message,
       }
     };
 
-    // Add attachments if provided
+    // Process attachments - EXCLUDE header logo completely from attachments array
+    // Header logo is embedded in HTML (as URL or data URI), NOT as attachment
+    const regularAttachments = [];
+    
     if (attachments && attachments.length > 0) {
-      mailOptions.attachments = attachments.map(attachment => {
-        const attachmentObj = {
-          filename: attachment.filename || 'attachment.pdf',
-          content: attachment.content,
-          encoding: 'base64',
-          contentType: attachment.contentType || 'application/pdf'
-        };
+      attachments.forEach((attachment, index) => {
+        const filename = (attachment.filename || '').toLowerCase();
+        const contentType = (attachment.contentType || '').toLowerCase();
         
-        // Add CID for embedded images
-        if (attachment.cid) {
-          attachmentObj.cid = attachment.cid;
+        // Check if this is the header logo
+        const isHeaderLogo = index === headerLogoIndex;
+        
+        if (!isHeaderLogo) {
+          // Only add non-header-logo attachments that have content (not URL-only)
+          if (attachment.content || attachment.path) {
+            const attachmentObj = {
+              filename: attachment.filename || 'attachment.pdf',
+              content: attachment.content,
+              path: attachment.path,
+              encoding: attachment.encoding || 'base64',
+              contentType: attachment.contentType || (filename.endsWith('.png') ? 'image/png' : 
+                                                       filename.endsWith('.jpg') || filename.endsWith('.jpeg') ? 'image/jpeg' : 
+                                                       filename.endsWith('.gif') ? 'image/gif' : 
+                                                       filename.endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream')
+            };
+            regularAttachments.push(attachmentObj);
+          } else if (attachment.url) {
+            // URL-only attachments are embedded in HTML, not sent as attachments
+            console.log(`⚠️  Skipping URL-only attachment: ${attachment.filename || 'unnamed'} (URL: ${attachment.url})`);
+          }
+        } else {
+          // Header logo is EXCLUDED from attachments - it's embedded in HTML only
+          console.log('📷 Header logo EXCLUDED from attachments array (embedded in HTML only)');
+          if (attachment.url) {
+            console.log('✅ Using hosted URL for header logo (best for Gmail):', attachment.url);
+          } else if (attachment.content) {
+            console.log('⚠️  Using data URI for header logo (Gmail may block, but won\'t show as attachment)');
+            console.log('💡 For best Gmail compatibility, host the image and provide URL instead of base64');
+          }
         }
-        
-        return attachmentObj;
       });
+    }
+    
+    // Add only regular attachments (header logo is NOT in this array)
+    if (regularAttachments.length > 0) {
+      mailOptions.attachments = regularAttachments;
+      console.log('📎 Regular attachments (header logo excluded):', regularAttachments.length);
+    } else {
+      // No attachments at all if only header logo was provided
+      console.log('📎 No regular attachments (header logo was excluded)');
     }
 
     const info = await transporter.sendMail(mailOptions);
@@ -987,8 +1179,43 @@ export const sendBulkEmails = async (clients, subject, message, isHtml = false, 
     const transporter = createTransporter();
     const results = [];
     
+    // Process message once for all clients
+    let processedMessage = message;
+    if (!isHtml) {
+      processedMessage = convertTextToHtml(message);
+    }
+    
+    // Find header logo index from attachments (once for all clients)
+    let headerLogoIndex = -1;
+    if (attachments && attachments.length > 0) {
+      attachments.forEach((attachment, index) => {
+        const filename = (attachment.filename || '').toLowerCase();
+        const contentType = (attachment.contentType || '').toLowerCase();
+        const cid = attachment.cid || '';
+        
+        if (
+          (contentType.startsWith('image/') && 
+           (filename.includes('header') || filename.includes('logo') || cid === 'header-logo')) ||
+          cid === 'header-logo'
+        ) {
+          headerLogoIndex = index;
+          if (!attachment.cid) {
+            attachment.cid = 'header-logo';
+          }
+        }
+      });
+    }
+    
     for (const client of clients) {
       try {
+        // Replace [Name] placeholder for each client
+        let clientMessage = processedMessage;
+        if (isHtml) {
+          clientMessage = message.replace(/\[Name\]/g, client.name);
+        } else {
+          clientMessage = processedMessage.replace(/\[Name\]/g, client.name);
+        }
+        
         const mailOptions = {
           from: {
             name: 'Trizen Ventures',
@@ -996,10 +1223,12 @@ export const sendBulkEmails = async (clients, subject, message, isHtml = false, 
           },
           to: client.email,
           subject: subject,
-          html: isHtml ? message.replace(/\[Name\]/g, client.name) : getSupportEmailTemplate('custom', {
+          html: getSupportEmailTemplate('custom', {
             clientName: client.name,
             subject,
-            message
+            message: clientMessage,
+            headerLogo: headerLogoIndex >= 0 ? attachments[headerLogoIndex] : null,
+            attachments: attachments
           }),
           text: isHtml ? message.replace(/<[^>]*>/g, '').replace(/\[Name\]/g, client.name) : message.replace(/\[Name\]/g, client.name),
           headers: {
@@ -1008,46 +1237,88 @@ export const sendBulkEmails = async (clients, subject, message, isHtml = false, 
           }
         };
 
-        // Add attachments if provided
+        // Separate header logo (inline only) from regular attachments
+        const inlineAttachments = [];
+        const regularAttachments = [];
+        
         if (attachments && attachments.length > 0) {
-          mailOptions.attachments = attachments.map(attachment => {
+          attachments.forEach((attachment, index) => {
             if (typeof attachment === 'string') {
-              // If attachment is a file path
-              return {
+              // File path - regular attachment
+              regularAttachments.push({
                 filename: attachment.split('/').pop() || 'attachment.pdf',
                 path: attachment
-              };
+              });
             } else if (attachment.content) {
-              // If attachment is base64 content
-              const attachmentObj = {
-                filename: attachment.filename || 'attachment.pdf',
-                content: attachment.content,
-                encoding: attachment.encoding || 'base64',
-                contentType: attachment.contentType || 'application/pdf'
-              };
+              // Base64 content
+              const filename = (attachment.filename || '').toLowerCase();
+              const contentType = (attachment.contentType || '').toLowerCase();
+              const isHeaderLogo = index === headerLogoIndex;
               
-              // Add CID for embedded images
-              if (attachment.cid) {
-                attachmentObj.cid = attachment.cid;
+              if (isHeaderLogo) {
+                // Header logo: inline only, no filename
+                inlineAttachments.push({
+                  cid: 'header-logo',
+                  content: attachment.content,
+                  encoding: attachment.encoding || 'base64',
+                  contentType: attachment.contentType || (filename.endsWith('.png') ? 'image/png' : 
+                                                           filename.endsWith('.jpg') || filename.endsWith('.jpeg') ? 'image/jpeg' : 
+                                                           filename.endsWith('.gif') ? 'image/gif' : 'image/png')
+                });
+              } else if (attachment.cid) {
+                // Other inline images
+                inlineAttachments.push({
+                  cid: attachment.cid,
+                  content: attachment.content,
+                  encoding: attachment.encoding || 'base64',
+                  contentType: attachment.contentType || (filename.endsWith('.png') ? 'image/png' : 
+                                                           filename.endsWith('.jpg') || filename.endsWith('.jpeg') ? 'image/jpeg' : 
+                                                           filename.endsWith('.gif') ? 'image/gif' : 'image/png')
+                });
+              } else {
+                // Regular file attachment
+                regularAttachments.push({
+                  filename: attachment.filename || 'attachment.pdf',
+                  content: attachment.content,
+                  encoding: attachment.encoding || 'base64',
+                  contentType: attachment.contentType || (filename.endsWith('.png') ? 'image/png' : 
+                                                         filename.endsWith('.jpg') || filename.endsWith('.jpeg') ? 'image/jpeg' : 
+                                                         filename.endsWith('.gif') ? 'image/gif' : 'application/pdf')
+                });
               }
-              
-              return attachmentObj;
             } else if (attachment.path) {
-              // If attachment has path property
-              const attachmentObj = {
-                filename: attachment.filename || attachment.path.split('/').pop() || 'attachment.pdf',
-                path: attachment.path
-              };
+              // File path attachment
+              const filename = (attachment.filename || attachment.path.split('/').pop() || '').toLowerCase();
+              const isHeaderLogo = index === headerLogoIndex;
               
-              // Add CID for embedded images
-              if (attachment.cid) {
-                attachmentObj.cid = attachment.cid;
+              if (isHeaderLogo) {
+                // Header logo from path - read and embed inline
+                inlineAttachments.push({
+                  cid: 'header-logo',
+                  path: attachment.path,
+                  contentType: attachment.contentType || (filename.endsWith('.png') ? 'image/png' : 
+                                                           filename.endsWith('.jpg') || filename.endsWith('.jpeg') ? 'image/jpeg' : 
+                                                           filename.endsWith('.gif') ? 'image/gif' : 'image/png')
+                });
+              } else if (attachment.cid) {
+                inlineAttachments.push({
+                  cid: attachment.cid,
+                  path: attachment.path
+                });
+              } else {
+                regularAttachments.push({
+                  filename: attachment.filename || attachment.path.split('/').pop() || 'attachment.pdf',
+                  path: attachment.path
+                });
               }
-              
-              return attachmentObj;
             }
-            return attachment;
           });
+        }
+        
+        // Combine inline and regular attachments
+        const allAttachments = [...inlineAttachments, ...regularAttachments];
+        if (allAttachments.length > 0) {
+          mailOptions.attachments = allAttachments;
         }
 
         const info = await transporter.sendMail(mailOptions);
@@ -1059,8 +1330,10 @@ export const sendBulkEmails = async (clients, subject, message, isHtml = false, 
         
         console.log(`✅ Bulk email with attachments sent successfully to ${client.email}`);
         
-        // Rate limiting - wait 1 second between emails
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Rate limiting - wait 500ms between emails (reduced from 1000ms for faster sending)
+        // ⚠️ WARNING: Removing this delay entirely may cause SMTP server rejections
+        // Gmail allows ~100 emails/day for free accounts, ~2000/day for Workspace
+        await new Promise(resolve => setTimeout(resolve, 500));
         
       } catch (error) {
         console.error(`❌ Failed to send email to ${client.email}:`, error);
