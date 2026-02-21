@@ -8,7 +8,8 @@ import {
   sendWelcomeEmail, 
   sendCustomEmail, 
   sendBulkEmails,
-  testEmailConfig 
+  testEmailConfig,
+  sendFinalYearProjectEmail 
 } from '../services/supportEmailService.js';
 
 const router = express.Router();
@@ -39,8 +40,27 @@ const customEmailSchema = Joi.object({
   clientEmail: Joi.string().email().required(),
   clientName: Joi.string().min(1).max(100).required(),
   subject: Joi.string().min(1).max(200).required(),
-  message: Joi.string().min(1).max(5000).required(),
-  isHtml: Joi.boolean().optional().default(false)
+  message: Joi.string().min(1).max(50000).required(), // Increased from 5000 to 50000 for HTML templates
+  isHtml: Joi.boolean().optional().default(false),
+  attachments: Joi.array().items(
+    Joi.alternatives().try(
+      // Attachment with base64 content
+      Joi.object({
+        filename: Joi.string().required(),
+        content: Joi.string().required(),
+        contentType: Joi.string().optional(),
+        encoding: Joi.string().optional().default('base64'),
+        cid: Joi.string().optional() // Content-ID for embedded images
+      }).unknown(false), // Don't allow unknown properties for content-based attachments
+      // Attachment with URL (for header logo) - must have url, no content required
+      Joi.object({
+        filename: Joi.string().required(),
+        url: Joi.string().pattern(/^https?:\/\/.+/).required(), // More lenient URL validation
+        contentType: Joi.string().optional(),
+        cid: Joi.string().optional() // Content-ID for embedded images
+      }).unknown(false) // Don't allow unknown properties
+    )
+  ).optional().allow(null).default([])
 });
 
 const bulkEmailSchema = Joi.object({
@@ -49,27 +69,36 @@ const bulkEmailSchema = Joi.object({
       email: Joi.string().email().required(),
       name: Joi.string().min(1).max(100).required()
     })
-  ).min(1).max(100).required(),
+  ).min(1).max(1000).required(), // Increased from 100 to 1000 - can be removed entirely if needed
   subject: Joi.string().min(1).max(200).required(),
-  message: Joi.string().min(1).max(5000).required(),
+  message: Joi.string().min(1).max(50000).required(), // Increased from 5000 to 50000 for HTML templates
   isHtml: Joi.boolean().optional().default(false),
   attachments: Joi.array().items(
     Joi.alternatives().try(
       Joi.string(), // File path
+      // Attachment with base64 content
       Joi.object({
         filename: Joi.string().required(),
         content: Joi.string().required(),
         encoding: Joi.string().optional().default('base64'),
         contentType: Joi.string().optional().default('application/pdf'),
         cid: Joi.string().optional() // Content-ID for embedded images
-      }),
+      }).unknown(false), // Don't allow unknown properties for content-based attachments
+      // Attachment with URL (for header logo) - must have url, no content required
+      Joi.object({
+        filename: Joi.string().required(),
+        url: Joi.string().pattern(/^https?:\/\/.+/).required(), // More lenient URL validation
+        contentType: Joi.string().optional(),
+        cid: Joi.string().optional() // Content-ID for embedded images
+      }).unknown(false), // Don't allow unknown properties
+      // Attachment with file path
       Joi.object({
         filename: Joi.string().required(),
         path: Joi.string().required(),
         cid: Joi.string().optional() // Content-ID for embedded images
       })
     )
-  ).optional().default([])
+  ).optional().allow(null).default([])
 });
 
 const applicationStatusSchema = Joi.object({
@@ -225,20 +254,35 @@ router.post('/send-welcome', async (req, res) => {
 // Send custom email endpoint
 router.post('/send-custom', async (req, res) => {
   try {
+    // Log incoming request for debugging
+    console.log('📧 Received send-custom request:', {
+      hasAttachments: !!req.body.attachments,
+      attachmentsCount: req.body.attachments?.length || 0,
+      attachmentTypes: req.body.attachments?.map((a) => ({
+        hasContent: !!a.content,
+        hasUrl: !!a.url,
+        filename: a.filename
+      })) || []
+    });
+    
     // Validate input
-    const { error, value } = customEmailSchema.validate(req.body);
+    const { error, value } = customEmailSchema.validate(req.body, { 
+      abortEarly: false, // Return all validation errors, not just the first
+      stripUnknown: false // Don't strip unknown properties, we want to see what's being sent
+    });
     if (error) {
+      console.error('❌ Validation error:', error.details);
       return res.status(400).json({
         success: false,
         error: 'Validation error',
-        details: error.details[0].message
+        details: error.details.map((d) => d.message).join('; ')
       });
     }
 
-    const { clientEmail, clientName, subject, message, isHtml } = value;
+    const { clientEmail, clientName, subject, message, isHtml, attachments } = value;
 
     // Send custom email
-    const result = await sendCustomEmail(clientEmail, clientName, subject, message, isHtml);
+    const result = await sendCustomEmail(clientEmail, clientName, subject, message, isHtml, attachments);
     
     res.json({
       success: true,
@@ -391,6 +435,41 @@ router.get('/status', async (req, res) => {
       success: false,
       message: 'Failed to check support email service status',
       error: error.message
+    });
+  }
+});
+
+// POST /api/support/send-final-year-project - Send final year project training email
+router.post('/send-final-year-project', async (req, res) => {
+  try {
+    // Validate request body
+    const finalYearProjectSchema = Joi.object({
+      email: Joi.string().email().required()
+    });
+
+    const { error, value } = finalYearProjectSchema.validate(req.body);
+    
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: error.details.map(d => d.message)
+      });
+    }
+
+    const result = await sendFinalYearProjectEmail(value.email);
+
+    res.status(200).json({
+      success: true,
+      message: 'Final year project training email sent successfully',
+      data: result
+    });
+  } catch (error) {
+    console.error('Error sending final year project email:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to send final year project email',
+      details: error.message
     });
   }
 });

@@ -1,16 +1,12 @@
-import dotenv from 'dotenv';
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import morgan from 'morgan';
-import compression from 'compression';
-import rateLimit from 'express-rate-limit';
-import { createServer } from 'http';
-
-// Import routes
-import emailRoutes from './routes/email.js';
-import supportEmailRoutes from './routes/supportEmail.js';
-import healthRoutes from './routes/health.js';
+import express from "express";
+import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
+import dotenv from "dotenv";
+import { createServer } from "http";
+import healthRoutes from "./routes/health.js";
+import supportEmailRoutes from "./routes/supportEmail.js";
+import bulkRoutes from "./routes/bulk.js";
 
 // Load environment variables
 dotenv.config();
@@ -19,168 +15,210 @@ const app = express();
 const server = createServer(app);
 const PORT = process.env.PORT || 3002;
 
-// Security middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-    },
-  },
-}));
+// Allowed CORS origins
+const defaultOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://localhost:3002",
+  "http://localhost:3003",
+  "http://localhost:5000",
+  "http://localhost:5001",
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://192.168.1.8:3001",
+  "https://careers.trizenventures.com",
+  "https://careersadminfrontend.llp.trizenventures.com",
+];
+const allowedOrigins = [
+  ...defaultOrigins,
+  ...(process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
+    : []),
+].filter(Boolean);
 
-// CORS configuration
-const corsOptions = {
-  origin: function (origin, callback) {
-    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
-      'http://localhost:3000',
-      'http://localhost:5000',
-      'http://localhost:5001',
-      'https://trizencareersbackend.llp.trizenventures.com',
-      'https://trizencareersfrontend.llp.trizenventures.com',
-      'https://careers.trizenventures.com'
-    ];
-    
-    // Allow requests with no origin (mobile apps, curl, etc.)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'X-API-Key'],
-  credentials: true
-};
+// In development, allow LAN origins (192.168.x.x, 10.x.x.x)
+const isDev = process.env.NODE_ENV !== "production";
+const lanOriginRegex = /^https?:\/\/(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3})(:\d+)?$/;
 
-app.use(cors(corsOptions));
+const isOriginAllowed = (origin) =>
+  allowedOrigins.includes(origin) ||
+  (isDev && origin && lanOriginRegex.test(origin));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
-  message: {
-    success: false,
-    error: 'Too many requests from this IP, please try again later.'
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+console.log("🌐 Allowed CORS origins:", allowedOrigins);
 
-app.use(limiter);
-
-// Compression middleware
-app.use(compression());
-
-// Logging middleware
-if (process.env.NODE_ENV !== 'test') {
-  app.use(morgan('combined'));
-}
-
-// Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// API Key middleware for service-to-service communication
-const apiKeyMiddleware = (req, res, next) => {
-  const apiKey = req.headers['x-api-key'];
-  const authHeader = req.headers.authorization;
-  
-  // Skip API key check for health endpoint
-  if (req.path === '/health' || req.path === '/api/health') {
-    return next();
-  }
-  
-  // Debug logging (only in development)
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🔑 API Key Check:');
-    console.log('  Received API Key:', apiKey ? apiKey.substring(0, 10) + '...' : 'NOT PROVIDED');
-    console.log('  Expected API Key:', process.env.API_KEY ? process.env.API_KEY.substring(0, 10) + '...' : 'NOT SET');
-    console.log('  Keys match:', apiKey === process.env.API_KEY);
-  }
-  
-  // Check for API key or Bearer token
-  if (apiKey === process.env.API_KEY || (authHeader && authHeader.startsWith('Bearer '))) {
-    return next();
-  }
-  
-  return res.status(401).json({
-    success: false,
-    error: 'Unauthorized. Valid API key or Bearer token required.'
-  });
-};
-
-// Apply API key middleware to all routes except health
+// 🚨 OPTIONS FIRST - Handle preflight requests immediately
 app.use((req, res, next) => {
-  if (req.path === '/health' || req.path === '/api/health') {
+  if (req.method === "OPTIONS") {
+    const origin = req.headers.origin;
+    const reqHeaders = req.headers["access-control-request-headers"];
+
+    if (origin && isOriginAllowed(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader(
+        "Access-Control-Allow-Headers",
+        reqHeaders || "Content-Type, Authorization, X-API-Key, X-Requested-With"
+      );
+      res.setHeader(
+        "Access-Control-Allow-Methods",
+        "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+      );
+      return res.sendStatus(200);
+    }
+    if (!origin) {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader(
+        "Access-Control-Allow-Headers",
+        reqHeaders || "Content-Type, Authorization, X-API-Key, X-Requested-With"
+      );
+      res.setHeader(
+        "Access-Control-Allow-Methods",
+        "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+      );
+      return res.sendStatus(200);
+    }
+    return res.sendStatus(200);
+  }
+  next();
+});
+
+// CORS middleware for all other requests
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (isOriginAllowed(origin)) return callback(null, true);
+      return callback(null, false);
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowedHeaders: [
+      "Origin",
+      "X-Requested-With",
+      "Content-Type",
+      "Accept",
+      "Authorization",
+      "X-API-Key",
+    ],
+    optionsSuccessStatus: 200,
+  })
+);
+
+// Security middleware
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginEmbedderPolicy: false,
+  })
+);
+
+// Rate limiting (skip OPTIONS requests and bulk email endpoints)
+// Increased limits for bulk email operations
+// TEMPORARILY DISABLED
+// const limiter = rateLimit({
+//   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+//   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 1000, // Increased from 100 to 1000
+//   message: 'Too many requests from this IP, please try again later.',
+//   skip: (req) => {
+//     // Skip OPTIONS preflight requests
+//     if (req.method === 'OPTIONS') return true;
+//     // Skip bulk email endpoints (they handle their own rate limiting)
+//     if (req.path === '/api/support/send-bulk' || req.path === '/api/support/send-custom') return true;
+//     return false;
+//   },
+//   standardHeaders: true, // Return rate limit info in `RateLimit-*` headers
+//   legacyHeaders: false, // Disable `X-RateLimit-*` headers
+// });
+
+// app.use(limiter);
+
+// Body parsing middleware - increased limit for multiple attachments
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+
+// API Key Middleware (skip OPTIONS and health checks)
+const apiKeyMiddleware = (req, res, next) => {
+  // Skip OPTIONS requests
+  if (req.method === "OPTIONS") {
     return next();
   }
-  return apiKeyMiddleware(req, res, next);
-});
+
+  // Skip health check endpoints
+  if (req.path === "/health" || req.path === "/api/health") {
+    return next();
+  }
+
+  const apiKey =
+    req.headers["x-api-key"] ||
+    req.headers["authorization"]?.replace("Bearer ", "");
+  const expectedApiKey = process.env.API_KEY;
+
+  if (!expectedApiKey) {
+    console.warn("⚠️  API_KEY not set in environment variables");
+    return next(); // Allow requests if API_KEY is not configured
+  }
+
+  if (!apiKey) {
+    return res.status(401).json({
+      success: false,
+      error: "Authentication required",
+      message: "API key is required. Please provide X-API-Key header.",
+    });
+  }
+
+  if (apiKey !== expectedApiKey) {
+    return res.status(403).json({
+      success: false,
+      error: "Invalid API key",
+      message: "The provided API key is invalid.",
+    });
+  }
+
+  next();
+};
+
+app.use(apiKeyMiddleware);
 
 // Routes
-app.use('/api/email', emailRoutes);
-app.use('/api/support', supportEmailRoutes);
-app.use('/api', healthRoutes);
-app.use('/', healthRoutes);
+app.use("/", healthRoutes);
+app.use("/api/support", supportEmailRoutes);
+app.use("/api/bulk", bulkRoutes);
+
+// 404 handler
+app.use((req, res) => {
+  // Don't interfere with OPTIONS requests
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+
+  res.status(404).json({
+    success: false,
+    error: "Not Found",
+    message: `Route ${req.method} ${req.path} not found`,
+  });
+});
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error('Global error handler:', err);
-  
-  // CORS error
-  if (err.message === 'Not allowed by CORS') {
-    return res.status(403).json({
-      success: false,
-      error: 'CORS policy violation'
-    });
+  // Don't interfere with OPTIONS requests
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
   }
-  
-  // Default error
-  res.status(500).json({
+
+  console.error("❌ Error:", err);
+
+  res.status(err.status || 500).json({
     success: false,
-    error: process.env.NODE_ENV === 'production' 
-      ? 'Internal server error' 
-      : err.message
-  });
-});
-
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    error: 'Endpoint not found'
-  });
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received. Shutting down gracefully...');
-  server.close(() => {
-    console.log('Process terminated');
-    process.exit(0);
-  });
-});
-
-process.on('SIGINT', () => {
-  console.log('SIGINT received. Shutting down gracefully...');
-  server.close(() => {
-    console.log('Process terminated');
-    process.exit(0);
+    error: err.message || "Internal Server Error",
+    ...(process.env.NODE_ENV === "development" && { stack: err.stack }),
   });
 });
 
 // Start server
 server.listen(PORT, () => {
   console.log(`🚀 Email Service running on port ${PORT}`);
-  console.log(`📧 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 Health check: http://localhost:${PORT}/health`);
-  console.log(`📚 API docs: http://localhost:${PORT}/api/health`);
+  console.log(`📧 Support Email Service ready`);
+  console.log(`🌐 CORS enabled for: ${allowedOrigins.join(", ")}`);
 });
 
 export default app;
-

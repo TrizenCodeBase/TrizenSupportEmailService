@@ -1,29 +1,41 @@
-import nodemailer from 'nodemailer';
+import nodemailer from "nodemailer";
 
 // Create reusable transporter object using SMTP transport for support@trizenventures.com
 const createTransporter = () => {
+  // Detect Microsoft email providers
+  const isMicrosoft = 
+    process.env.SMTP_HOST?.includes("outlook") ||
+    process.env.SMTP_HOST?.includes("office365") ||
+    process.env.SMTP_HOST?.includes("hotmail") ||
+    process.env.SMTP_HOST?.includes("microsoft");
+
   const emailConfig = {
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    host: process.env.SMTP_HOST || "smtp.gmail.com",
     port: parseInt(process.env.SMTP_PORT) || 587,
     secure: false, // true for 465, false for other ports
     auth: {
-      user: process.env.SMTP_USER || 'support@trizenventures.com',
+      user: process.env.SMTP_USER || "support@trizenventures.com",
       pass: process.env.SMTP_PASS,
     },
-    // Professional configurations
+    // Microsoft-optimized settings
     pool: true,
-    maxConnections: 5,
-    maxMessages: 100,
+    maxConnections: isMicrosoft ? 10 : 5, // Increased for Microsoft
+    maxMessages: isMicrosoft ? 500 : 100, // Increased for Microsoft
     rateDelta: 1000, // 1 second
-    rateLimit: 10, // 10 emails per second max
+    rateLimit: isMicrosoft ? 30 : 10, // Microsoft allows ~30 emails/minute
   };
 
-  // Add specific configurations for different providers
-  if (process.env.SMTP_HOST?.includes('outlook') || process.env.SMTP_HOST?.includes('hotmail')) {
+  // Microsoft-specific configuration
+  if (isMicrosoft) {
     emailConfig.requireTLS = true;
     emailConfig.tls = {
-      ciphers: 'SSLv3'
+      ciphers: "SSLv3",
+      rejectUnauthorized: false, // Some Microsoft servers need this
     };
+    // Microsoft connection timeouts
+    emailConfig.connectionTimeout = 60000; // 60 seconds
+    emailConfig.socketTimeout = 60000;
+    emailConfig.greetingTimeout = 30000;
   }
 
   return nodemailer.createTransport(emailConfig);
@@ -92,7 +104,7 @@ const getSupportEmailTemplate = (type, data) => {
   `;
 
   switch (type) {
-    case 'support-response':
+    case "support-response":
       return `
         <!DOCTYPE html>
         <html>
@@ -109,26 +121,35 @@ const getSupportEmailTemplate = (type, data) => {
               <h1 style="margin: 0; font-size: 28px;">Support Response</h1>
             </div>
             <div class="content">
-              <p style="font-size: 16px; margin-bottom: 24px;">Hello ${data.clientName || 'Valued Client'},</p>
+              <p style="font-size: 16px; margin-bottom: 24px;">Hello ${
+                data.clientName || "Valued Client"
+              },</p>
               
               <p>Thank you for reaching out to our support team. We have received your inquiry and are here to help.</p>
               
               <div class="support-info">
                 <strong>📋 Your Inquiry:</strong><br>
-                ${data.inquiry || 'General support request'}
+                ${data.inquiry || "General support request"}
               </div>
               
               <div style="background-color: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 6px; padding: 16px; margin: 20px 0;">
                 <strong>💬 Our Response:</strong><br>
-                ${data.response || 'We are currently reviewing your request and will provide a detailed response shortly.'}
+                ${
+                  data.response ||
+                  "We are currently reviewing your request and will provide a detailed response shortly."
+                }
               </div>
               
-              ${data.actionRequired ? `
+              ${
+                data.actionRequired
+                  ? `
                 <div style="background-color: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px; padding: 16px; margin: 20px 0;">
                   <strong>⚡ Action Required:</strong><br>
                   ${data.actionRequired}
                 </div>
-              ` : ''}
+              `
+                  : ""
+              }
               
               <p>If you have any additional questions or need further assistance, please don't hesitate to contact us.</p>
               
@@ -150,7 +171,7 @@ const getSupportEmailTemplate = (type, data) => {
         </html>
       `;
     
-    case 'welcome':
+    case "welcome":
       return `
         <!DOCTYPE html>
         <html>
@@ -167,7 +188,9 @@ const getSupportEmailTemplate = (type, data) => {
               <h1 style="margin: 0; font-size: 28px;">Welcome to Trizen Ventures!</h1>
             </div>
             <div class="content">
-              <p style="font-size: 16px; margin-bottom: 24px;">Hello ${data.clientName || 'Valued Client'},</p>
+              <p style="font-size: 16px; margin-bottom: 24px;">Hello ${
+                data.clientName || "Valued Client"
+              },</p>
               
               <p>Welcome to Trizen Ventures! We're excited to have you on board.</p>
               
@@ -197,7 +220,7 @@ const getSupportEmailTemplate = (type, data) => {
         </html>
       `;
     
-    case 'application-confirmation':
+    case "application-confirmation":
       return `
         <!DOCTYPE html>
         <html>
@@ -266,12 +289,16 @@ const getSupportEmailTemplate = (type, data) => {
               <h1 style="margin: 0; font-size: 28px;">Application Confirmed!</h1>
             </div>
             <div class="content">
-              <p style="font-size: 16px; margin-bottom: 24px;">Hello ${data.applicantName || 'Applicant'},</p>
+              <p style="font-size: 16px; margin-bottom: 24px;">Hello ${
+                data.applicantName || "Applicant"
+              },</p>
               
               <p style="font-size: 16px; margin-bottom: 24px;">
                 Thank you for your interest in joining our team at <strong>Trizen Ventures</strong>! 
-                We have successfully received your application for the position of <strong>"${data.jobTitle || 'Position'}"</strong> 
-                (Job ID: ${data.jobId || 'N/A'}).
+                We have successfully received your application for the position of <strong>"${
+                  data.jobTitle || "Position"
+                }"</strong> 
+                (Job ID: ${data.jobId || "N/A"}).
               </p>
               
               <div class="next-steps">
@@ -286,15 +313,17 @@ const getSupportEmailTemplate = (type, data) => {
                 <h3 style="margin: 0 0 16px 0; color: #374151; font-size: 18px;">📄 Application Details:</h3>
                 <div class="detail-row">
                   <span class="detail-label">Position:</span>
-                  <span class="detail-value">${data.jobTitle || 'N/A'}</span>
+                  <span class="detail-value">${data.jobTitle || "N/A"}</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">Application ID:</span>
-                  <span class="detail-value">${data.jobId || 'N/A'}</span>
+                  <span class="detail-value">${data.jobId || "N/A"}</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">Applied on:</span>
-                  <span class="detail-value">${data.appliedDate || new Date().toLocaleDateString()}</span>
+                  <span class="detail-value">${
+                    data.appliedDate || new Date().toLocaleDateString()
+                  }</span>
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">Status:</span>
@@ -336,43 +365,116 @@ const getSupportEmailTemplate = (type, data) => {
         </html>
       `;
     
-    case 'custom':
+    case "custom":
+      // Find header logo from attachments (look for header logo by filename or cid)
+      let headerLogo = data.headerLogo;
+
+      // If not passed directly, find from attachments
+      if (!headerLogo && data.attachments && data.attachments.length > 0) {
+        headerLogo = data.attachments.find((a) => {
+          const filename = (a.filename || "").toLowerCase();
+          const contentType = (a.contentType || "").toLowerCase();
+          const cid = a.cid || "";
+          return (
+            (contentType.startsWith("image/") &&
+              (filename.includes("header") ||
+                filename.includes("logo") ||
+                cid === "header-logo" ||
+                cid === "trizen-logo")) ||
+            cid === "header-logo" ||
+            cid === "trizen-logo"
+          );
+        });
+      }
+
+      // Only treat as "has logo" when there's an actual embedded image (cid: or <img), not the word "logo" in text/comments
+      const messageContent = data.message || data.content || "";
+      const hasEmbeddedImage =
+        messageContent.includes("cid:") || messageContent.includes("<img");
+      const isFullHtmlDocument = messageContent.includes("<!DOCTYPE html>");
+
+      // If message is already a complete HTML document with its own structure, return it as-is (no wrapper)
+      if (isFullHtmlDocument) {
+        console.log("ℹ️  Message is complete HTML, using as-is without template wrapper");
+        return messageContent;
+      }
+
+      // Embed header logo above content when we have a header logo and message doesn't already embed an image
+      let logoSrc = "";
+      if (!hasEmbeddedImage && headerLogo && headerLogo.url) {
+        // Hosted URL - best for Gmail (no attachment, loads from server)
+        logoSrc = headerLogo.url;
+        console.log(
+          "✅ Header logo using hosted URL (best for Gmail):",
+          logoSrc
+        );
+      } else if (!hasEmbeddedImage && headerLogo && headerLogo.content) {
+        // Base64 content - use CID reference to inline attachment (Gmail compatible)
+        const logoCID = headerLogo.cid || "header-logo";
+        logoSrc = `cid:${logoCID}`;
+        console.log(
+          `✅ Header logo using CID inline attachment (${logoSrc}) – displayed above content`
+        );
+      } else if (hasEmbeddedImage) {
+        console.log("ℹ️  Message already contains embedded image, skipping template logo injection");
+      } else {
+        console.log("⚠️  No header logo found in template");
+      }
+
+      // Email-safe HTML with tables (works in Gmail, Outlook, etc.)
       return `
         <!DOCTYPE html>
         <html>
         <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>${data.subject || 'Message from Trizen Ventures'}</title>
-          ${baseStyle}
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <title>${data.subject || "Message from Trizen Ventures"}</title>
         </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <div class="logo">🚀 Trizen Ventures</div>
-              <h1 style="margin: 0; font-size: 28px;">${data.subject || 'Important Message'}</h1>
-            </div>
-            <div class="content">
-              <p style="font-size: 16px; margin-bottom: 24px;">Hello ${data.clientName || 'Valued Client'},</p>
-              
-              ${data.message || data.content || 'This is an important message from Trizen Ventures.'}
-              
-              <p style="margin-top: 32px;">
-                Best regards,<br>
-                <strong>Trizen Ventures Team</strong>
-              </p>
-            </div>
-            <div class="footer">
-              <p><strong>Trizen Ventures</strong></p>
-              <p>Email: support@trizenventures.com</p>
-              <p>Website: https://trizenventures.com</p>
-            </div>
-          </div>
+        <body style="margin:0; padding:0; background-color:#f5f5f5; font-family:Arial, sans-serif;">
+          
+          <!-- Email Wrapper Table -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f5f5f5;">
+            <tr>
+              <td align="center" style="padding:20px 0;">
+                
+                <!-- Main Container Table -->
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:8px; max-width:600px;">
+                  
+                  ${
+                    logoSrc
+                      ? `
+                  <!-- Header Logo -->
+                  <tr>
+                    <td align="center" style="padding:0; margin:0; line-height:0;">
+                      <img 
+                        src="${logoSrc}" 
+                        alt="Trizen Ventures" 
+                        style="display:block; width:100%; max-width:600px; height:auto; border:0; outline:none; margin:0; padding:0;" 
+                      />
+                    </td>
+                  </tr>
+                  `
+                      : ""
+                  }
+                  
+                  <!-- Message Content -->
+                  <tr>
+                    <td style="padding:30px 20px; font-family:Arial, sans-serif; font-size:16px; line-height:1.6; color:#333333;">
+                      ${messageContent}
+                    </td>
+                  </tr>
+                  
+                </table>
+                
+              </td>
+            </tr>
+          </table>
+          
         </body>
         </html>
       `;
-    
-    case 'application-accepted':
+
+    case "application-accepted":
       return `
         <!DOCTYPE html>
         <html>
@@ -420,11 +522,15 @@ const getSupportEmailTemplate = (type, data) => {
               <h1 style="margin: 0; font-size: 28px;">Congratulations! 🎉</h1>
             </div>
             <div class="content">
-              <p style="font-size: 16px; margin-bottom: 24px;">Hello ${data.applicantName || 'Applicant'},</p>
+              <p style="font-size: 16px; margin-bottom: 24px;">Hello ${
+                data.applicantName || "Applicant"
+              },</p>
               
               <p style="font-size: 18px; margin-bottom: 24px;">
                 We are thrilled to inform you that your application for the position of 
-                <strong>"${data.jobTitle || 'Position'}"</strong> (Job ID: ${data.jobId || 'N/A'}) 
+                <strong>"${data.jobTitle || "Position"}"</strong> (Job ID: ${
+        data.jobId || "N/A"
+      }) 
                 has been <strong>ACCEPTED</strong>!
               </p>
               
@@ -477,8 +583,8 @@ const getSupportEmailTemplate = (type, data) => {
         </body>
         </html>
       `;
-    
-    case 'application-rejected':
+
+    case "application-rejected":
       return `
         <!DOCTYPE html>
         <html>
@@ -511,12 +617,16 @@ const getSupportEmailTemplate = (type, data) => {
               <h1 style="margin: 0; font-size: 28px;">Application Update</h1>
             </div>
             <div class="content">
-              <p style="font-size: 16px; margin-bottom: 24px;">Hello ${data.applicantName || 'Applicant'},</p>
+              <p style="font-size: 16px; margin-bottom: 24px;">Hello ${
+                data.applicantName || "Applicant"
+              },</p>
               
               <p style="font-size: 16px; margin-bottom: 24px;">
                 Thank you for your interest in joining <strong>Trizen Ventures</strong> and for taking the time 
-                to apply for the position of <strong>"${data.jobTitle || 'Position'}"</strong> 
-                (Job ID: ${data.jobId || 'N/A'}).
+                to apply for the position of <strong>"${
+                  data.jobTitle || "Position"
+                }"</strong> 
+                (Job ID: ${data.jobId || "N/A"}).
               </p>
               
               <p style="font-size: 16px; margin-bottom: 24px;">
@@ -579,32 +689,38 @@ const getSupportEmailTemplate = (type, data) => {
       `;
     
     default:
-      return '';
+      return "";
   }
 };
 
 // Send application confirmation email
-export const sendApplicationConfirmationEmail = async (applicantEmail, applicantName, jobTitle, jobId, appliedDate = null) => {
+export const sendApplicationConfirmationEmail = async (
+  applicantEmail,
+  applicantName,
+  jobTitle,
+  jobId,
+  appliedDate = null
+) => {
   try {
     const transporter = createTransporter();
     
     const mailOptions = {
       from: {
-        name: 'Trizen Ventures HR',
-        address: 'support@trizenventures.com'
+        name: "Trizen Ventures HR",
+        address: "support@trizenventures.com",
       },
       to: applicantEmail,
       subject: `Application Confirmed - ${jobTitle} | Trizen Ventures`,
-      html: getSupportEmailTemplate('application-confirmation', {
+      html: getSupportEmailTemplate("application-confirmation", {
         applicantName,
         jobTitle,
         jobId,
-        appliedDate: appliedDate || new Date().toLocaleDateString()
+        appliedDate: appliedDate || new Date().toLocaleDateString(),
       }),
       text: `
 Application Confirmation - Trizen Ventures
 
-Hello ${applicantName || 'Applicant'},
+Hello ${applicantName || "Applicant"},
 
 Thank you for your interest in joining our team at Trizen Ventures! 
 We have successfully received your application for the position of "${jobTitle}" (Job ID: ${jobId}).
@@ -633,54 +749,63 @@ This is an automated confirmation email. Please do not reply to this email.
 For support, contact us at support@trizenventures.com
       `,
       headers: {
-        'X-Mailer': 'Trizen Ventures Application System',
-        'X-Priority': '3',
-      }
+        "X-Mailer": "Trizen Ventures Application System",
+        "X-Priority": "3",
+      },
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Application confirmation email sent successfully to ${applicantEmail}`);
-    console.log('Message ID:', info.messageId);
-    
-    return { 
-      success: true, 
+    console.log(
+      `✅ Application confirmation email sent successfully to ${applicantEmail}`
+    );
+    console.log("Message ID:", info.messageId);
+
+    return {
+      success: true,
       messageId: info.messageId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   } catch (error) {
-    console.error('❌ Error sending application confirmation email:', error);
-    
-    if (error.code === 'EAUTH') {
-      console.error('Authentication failed. Check SMTP credentials.');
-    } else if (error.code === 'ECONNECTION') {
-      console.error('Connection failed. Check SMTP host and port.');
+    console.error("❌ Error sending application confirmation email:", error);
+
+    if (error.code === "EAUTH") {
+      console.error("Authentication failed. Check SMTP credentials.");
+    } else if (error.code === "ECONNECTION") {
+      console.error("Connection failed. Check SMTP host and port.");
     }
-    
-    throw new Error(`Failed to send application confirmation email: ${error.message}`);
+
+    throw new Error(
+      `Failed to send application confirmation email: ${error.message}`
+    );
   }
 };
 
 // Send application acceptance email
-export const sendApplicationAcceptanceEmail = async (applicantEmail, applicantName, jobTitle, jobId) => {
+export const sendApplicationAcceptanceEmail = async (
+  applicantEmail,
+  applicantName,
+  jobTitle,
+  jobId
+) => {
   try {
     const transporter = createTransporter();
-    
+
     const mailOptions = {
       from: {
-        name: 'Trizen Ventures HR',
-        address: 'support@trizenventures.com'
+        name: "Trizen Ventures HR",
+        address: "support@trizenventures.com",
       },
       to: applicantEmail,
       subject: `Congratulations! Application Accepted - ${jobTitle} | Trizen Ventures`,
-      html: getSupportEmailTemplate('application-accepted', {
+      html: getSupportEmailTemplate("application-accepted", {
         applicantName,
         jobTitle,
-        jobId
+        jobId,
       }),
       text: `
 Congratulations! Application Accepted - Trizen Ventures
 
-Hello ${applicantName || 'Applicant'},
+Hello ${applicantName || "Applicant"},
 
 We are thrilled to inform you that your application for the position of "${jobTitle}" (Job ID: ${jobId}) has been ACCEPTED!
 
@@ -704,54 +829,63 @@ This is an automated email. Please do not reply to this email.
 For support, contact us at support@trizenventures.com
       `,
       headers: {
-        'X-Mailer': 'Trizen Ventures Application System',
-        'X-Priority': '1', // High priority for acceptance emails
-      }
+        "X-Mailer": "Trizen Ventures Application System",
+        "X-Priority": "1", // High priority for acceptance emails
+      },
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Application acceptance email sent successfully to ${applicantEmail}`);
-    console.log('Message ID:', info.messageId);
+    console.log(
+      `✅ Application acceptance email sent successfully to ${applicantEmail}`
+    );
+    console.log("Message ID:", info.messageId);
     
     return { 
       success: true, 
       messageId: info.messageId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   } catch (error) {
-    console.error('❌ Error sending application acceptance email:', error);
-    
-    if (error.code === 'EAUTH') {
-      console.error('Authentication failed. Check SMTP credentials.');
-    } else if (error.code === 'ECONNECTION') {
-      console.error('Connection failed. Check SMTP host and port.');
+    console.error("❌ Error sending application acceptance email:", error);
+
+    if (error.code === "EAUTH") {
+      console.error("Authentication failed. Check SMTP credentials.");
+    } else if (error.code === "ECONNECTION") {
+      console.error("Connection failed. Check SMTP host and port.");
     }
-    
-    throw new Error(`Failed to send application acceptance email: ${error.message}`);
+
+    throw new Error(
+      `Failed to send application acceptance email: ${error.message}`
+    );
   }
 };
 
 // Send application rejection email
-export const sendApplicationRejectionEmail = async (applicantEmail, applicantName, jobTitle, jobId) => {
+export const sendApplicationRejectionEmail = async (
+  applicantEmail,
+  applicantName,
+  jobTitle,
+  jobId
+) => {
   try {
     const transporter = createTransporter();
-    
+
     const mailOptions = {
       from: {
-        name: 'Trizen Ventures HR',
-        address: 'support@trizenventures.com'
+        name: "Trizen Ventures HR",
+        address: "support@trizenventures.com",
       },
       to: applicantEmail,
       subject: `Application Update - ${jobTitle} | Trizen Ventures`,
-      html: getSupportEmailTemplate('application-rejected', {
+      html: getSupportEmailTemplate("application-rejected", {
         applicantName,
         jobTitle,
-        jobId
+        jobId,
       }),
       text: `
 Application Update - Trizen Ventures
 
-Hello ${applicantName || 'Applicant'},
+Hello ${applicantName || "Applicant"},
 
 Thank you for your interest in joining Trizen Ventures and for taking the time to apply for the position of "${jobTitle}" (Job ID: ${jobId}).
 
@@ -773,63 +907,76 @@ This is an automated email. Please do not reply to this email.
 For support, contact us at support@trizenventures.com
       `,
       headers: {
-        'X-Mailer': 'Trizen Ventures Application System',
-        'X-Priority': '3',
-      }
+        "X-Mailer": "Trizen Ventures Application System",
+        "X-Priority": "3",
+      },
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Application rejection email sent successfully to ${applicantEmail}`);
-    console.log('Message ID:', info.messageId);
-    
-    return { 
-      success: true, 
+    console.log(
+      `✅ Application rejection email sent successfully to ${applicantEmail}`
+    );
+    console.log("Message ID:", info.messageId);
+
+    return {
+      success: true,
       messageId: info.messageId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   } catch (error) {
-    console.error('❌ Error sending application rejection email:', error);
-    
-    if (error.code === 'EAUTH') {
-      console.error('Authentication failed. Check SMTP credentials.');
-    } else if (error.code === 'ECONNECTION') {
-      console.error('Connection failed. Check SMTP host and port.');
+    console.error("❌ Error sending application rejection email:", error);
+
+    if (error.code === "EAUTH") {
+      console.error("Authentication failed. Check SMTP credentials.");
+    } else if (error.code === "ECONNECTION") {
+      console.error("Connection failed. Check SMTP host and port.");
     }
     
-    throw new Error(`Failed to send application rejection email: ${error.message}`);
+    throw new Error(
+      `Failed to send application rejection email: ${error.message}`
+    );
   }
 };
 
 // Send support response email
-export const sendSupportResponseEmail = async (clientEmail, clientName, inquiry, response, actionRequired = null) => {
+export const sendSupportResponseEmail = async (
+  clientEmail,
+  clientName,
+  inquiry,
+  response,
+  actionRequired = null
+) => {
   try {
     const transporter = createTransporter();
     
     const mailOptions = {
       from: {
-        name: 'Trizen Ventures Support',
-        address: 'support@trizenventures.com'
+        name: "Trizen Ventures Support",
+        address: "support@trizenventures.com",
       },
       to: clientEmail,
-      subject: 'Re: Your Support Request - Trizen Ventures',
-      html: getSupportEmailTemplate('support-response', {
+      subject: "Re: Your Support Request - Trizen Ventures",
+      html: getSupportEmailTemplate("support-response", {
         clientName,
         inquiry,
         response,
-        actionRequired
+        actionRequired,
       }),
       text: `
 Support Response - Trizen Ventures
 
-Hello ${clientName || 'Valued Client'},
+Hello ${clientName || "Valued Client"},
 
 Thank you for reaching out to our support team.
 
-Your Inquiry: ${inquiry || 'General support request'}
+Your Inquiry: ${inquiry || "General support request"}
 
-Our Response: ${response || 'We are currently reviewing your request and will provide a detailed response shortly.'}
+Our Response: ${
+        response ||
+        "We are currently reviewing your request and will provide a detailed response shortly."
+      }
 
-${actionRequired ? `Action Required: ${actionRequired}` : ''}
+${actionRequired ? `Action Required: ${actionRequired}` : ""}
 
 If you have any additional questions or need further assistance, please don't hesitate to contact us.
 
@@ -840,27 +987,29 @@ Email: support@trizenventures.com
 Website: https://trizenventures.com
       `,
       headers: {
-        'X-Mailer': 'Trizen Ventures Support System',
-        'X-Priority': '3',
-      }
+        "X-Mailer": "Trizen Ventures Support System",
+        "X-Priority": "3",
+      },
     };
 
     const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Support response email sent successfully to ${clientEmail}`);
-    console.log('Message ID:', info.messageId);
+    console.log(
+      `✅ Support response email sent successfully to ${clientEmail}`
+    );
+    console.log("Message ID:", info.messageId);
     
     return { 
       success: true, 
       messageId: info.messageId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   } catch (error) {
-    console.error('❌ Error sending support response email:', error);
+    console.error("❌ Error sending support response email:", error);
     
-    if (error.code === 'EAUTH') {
-      console.error('Authentication failed. Check SMTP credentials.');
-    } else if (error.code === 'ECONNECTION') {
-      console.error('Connection failed. Check SMTP host and port.');
+    if (error.code === "EAUTH") {
+      console.error("Authentication failed. Check SMTP credentials.");
+    } else if (error.code === "ECONNECTION") {
+      console.error("Connection failed. Check SMTP host and port.");
     }
     
     throw new Error(`Failed to send support response email: ${error.message}`);
@@ -874,16 +1023,16 @@ export const sendWelcomeEmail = async (clientEmail, clientName) => {
     
     const mailOptions = {
       from: {
-        name: 'Trizen Ventures',
-        address: 'support@trizenventures.com'
+        name: "Trizen Ventures",
+        address: "support@trizenventures.com",
       },
       to: clientEmail,
-      subject: 'Welcome to Trizen Ventures! 🚀',
-      html: getSupportEmailTemplate('welcome', { clientName }),
+      subject: "Welcome to Trizen Ventures! 🚀",
+      html: getSupportEmailTemplate("welcome", { clientName }),
       text: `
 Welcome to Trizen Ventures!
 
-Hello ${clientName || 'Valued Client'},
+Hello ${clientName || "Valued Client"},
 
 Welcome to Trizen Ventures! We're excited to have you on board.
 
@@ -899,7 +1048,7 @@ Trizen Ventures Team
 
 Email: support@trizenventures.com
 Website: https://trizenventures.com
-      `
+      `,
     };
 
     const info = await transporter.sendMail(mailOptions);
@@ -908,54 +1057,337 @@ Website: https://trizenventures.com
     return { 
       success: true, 
       messageId: info.messageId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   } catch (error) {
-    console.error('❌ Error sending welcome email:', error);
+    console.error("❌ Error sending welcome email:", error);
     throw new Error(`Failed to send welcome email: ${error.message}`);
   }
 };
 
+// Helper function to convert plain text to HTML with formatting
+const convertTextToHtml = (text) => {
+  if (!text) return "";
+
+  // Escape HTML special characters
+  let html = text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+
+  // split by lines to process block elements
+  let lines = html.split("\n");
+  let newLines = [];
+  let inList = false;
+  let listType = "";
+
+  for (let i = 0; i < lines.length; i++) {
+    let line = lines[i].trimEnd();
+
+    // Check for bullet lists (- or *)
+    const bulletMatch = line.match(/^(\s*)([-*])\s+(.*)/);
+    // Check for numbered lists (1. or 1))
+    const numberMatch = line.match(/^(\s*)(\d+)[.)]\s+(.*)/);
+
+    if (bulletMatch || numberMatch) {
+      const type = bulletMatch ? "ul" : "ol";
+      const content = bulletMatch ? bulletMatch[3] : numberMatch[3];
+
+      if (!inList) {
+        newLines.push(
+          `<${type} style="margin-top: 0px; margin-bottom: 0px; padding-left: 20px;">`
+        );
+        inList = true;
+        listType = type;
+      } else if (inList && listType !== type) {
+        // Switch list type
+        newLines.push(`</${listType}>`);
+        newLines.push(
+          `<${type} style="margin-top: 0px; margin-bottom: 0px; padding-left: 20px;">`
+        );
+        listType = type;
+      }
+      newLines.push(`<li style="margin-bottom: 2px;">${content}</li>`);
+    } else {
+      // If line is empty and we are in a list, just ignore it to keep list compact
+      if (line.trim() === "" && inList) {
+        continue;
+      }
+
+      if (inList) {
+        newLines.push(`</${listType}>`);
+        inList = false;
+        listType = "";
+      }
+      newLines.push(line);
+    }
+  }
+
+  if (inList) {
+    newLines.push(`</${listType}>`);
+  }
+
+  html = newLines.join("\n");
+
+  // URL linking - improved regex to catch more URL types
+  const urlRegex =
+    /(\b(https?|ftp|file):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/gi;
+  html = html.replace(
+    urlRegex,
+    '<a href="$1" target="_blank" style="color: #2563eb; text-decoration: underline;">$1</a>'
+  );
+
+  // Convert double line breaks to paragraphs, ensuring lists aren't broken
+  html = html.replace(/\n\n/g, '</p><p style="margin-bottom: 10px;">');
+
+  // Convert remaining single newlines to <br> for non-list items
+  // We accept that lists are already handled line-by-line
+  html = html.replace(/\n/g, "<br>");
+
+  // Bold text: **text** or *text*
+  html = html.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>");
+
+  // Wrap in paragraph tags if not already
+  if (!html.startsWith("<p>")) {
+    html = '<p style="margin-bottom: 15px;">' + html + "</p>";
+  }
+
+  // Cleanup: fix empty paragraphs or bad nesting
+  html = html.replace(/<p>\s*<\/p>/g, "");
+
+  return html;
+};
+
 // Send custom email to clients
-export const sendCustomEmail = async (clientEmail, clientName, subject, message, isHtml = false) => {
+export const sendCustomEmail = async (
+  clientEmail,
+  clientName,
+  subject,
+  message,
+  isHtml = false,
+  attachments = []
+) => {
   try {
     const transporter = createTransporter();
+
+    // Process message: if not HTML, convert plain text to HTML
+    let processedMessage = message;
+    if (!isHtml) {
+      processedMessage = convertTextToHtml(message);
+    } else {
+      // Replace [Name] placeholder if HTML
+      processedMessage = message.replace(/\[Name\]/g, clientName);
+    }
+
+    // Find header logo from attachments (look for header/logo image)
+    let headerLogoIndex = -1;
+
+    if (attachments && attachments.length > 0) {
+      console.log(
+        "🔍 Checking attachments for header logo:",
+        attachments.length,
+        "attachments"
+      );
+
+      attachments.forEach((attachment, index) => {
+        const filename = (attachment.filename || "").toLowerCase();
+        const contentType = (attachment.contentType || "").toLowerCase();
+        const cid = attachment.cid || "";
+
+        // Detect image type from filename if contentType not set
+        const isImage =
+          contentType.startsWith("image/") ||
+          filename.endsWith(".png") ||
+          filename.endsWith(".jpg") ||
+          filename.endsWith(".jpeg") ||
+          filename.endsWith(".gif") ||
+          filename.endsWith(".webp");
+
+        // Check if this is a header logo (image with header/logo in name or cid)
+        const isHeaderLogo =
+          (isImage &&
+            (filename.includes("header") || filename.includes("logo"))) ||
+          cid === "header-logo" ||
+          cid === "trizen-logo";
+
+        console.log(`  Attachment ${index}:`, {
+          filename: attachment.filename,
+          contentType: attachment.contentType || "not set",
+          isImage,
+          isHeaderLogo,
+          hasContent: !!attachment.content,
+          hasUrl: !!attachment.url,
+        });
+
+        if (isHeaderLogo) {
+          headerLogoIndex = index;
+          // Ensure header logo has a CID for embedding (only if using CID, not URL)
+          if (!attachment.cid && !attachment.url) {
+            attachment.cid = "header-logo";
+          }
+          console.log(`  ✅ Header logo found at index ${index}`, {
+            hasUrl: !!attachment.url,
+            hasContent: !!attachment.content,
+            url: attachment.url || "none",
+          });
+        }
+      });
+    }
+
+    if (headerLogoIndex === -1) {
+      console.log("⚠️  No header logo detected in attachments");
+      console.log(
+        "💡 Tip: For best Gmail compatibility, use a hosted URL instead of base64 attachment"
+      );
+    } else {
+      console.log(`✅ Header logo detected at index ${headerLogoIndex}`);
+    }
     
     const mailOptions = {
       from: {
-        name: 'Trizen Ventures',
-        address: 'support@trizenventures.com'
+        name: "Trizen Ventures",
+        address: "support@trizenventures.com",
       },
       to: clientEmail,
       subject: subject,
-      html: isHtml ? message.replace(/\[Name\]/g, clientName) : getSupportEmailTemplate('custom', {
+      html: (() => {
+        // Prepare header logo for template (keep attachment's cid so template and inline attachment match)
+        const headerLogoForTemplate =
+          headerLogoIndex >= 0
+            ? { ...attachments[headerLogoIndex] }
+            : null;
+
+        console.log("📧 Preparing email template:", {
+          hasHeaderLogo: !!headerLogoForTemplate,
+          headerLogoIndex,
+          totalAttachments: attachments.length,
+          headerLogoUrl: headerLogoForTemplate?.url || "none",
+          headerLogoHasContent: !!headerLogoForTemplate?.content,
+        });
+
+        return getSupportEmailTemplate("custom", {
         clientName,
         subject,
-        message
-      }),
-      text: isHtml ? message.replace(/<[^>]*>/g, '').replace(/\[Name\]/g, clientName) : message.replace(/\[Name\]/g, clientName),
+          message: processedMessage,
+          headerLogo: headerLogoForTemplate,
+          attachments: attachments,
+        });
+      })(),
+      text: isHtml
+        ? message.replace(/<[^>]*>/g, "").replace(/\[Name\]/g, clientName)
+        : message.replace(/\[Name\]/g, clientName),
       headers: {
-        'X-Mailer': 'Trizen Ventures Support System',
-        'X-Priority': '3',
-      }
+        "X-Mailer": "Trizen Ventures Support System",
+        "X-Priority": "3",
+      },
     };
+
+    // Process attachments - separate header logo (inline) from regular attachments
+    const regularAttachments = [];
+    const inlineAttachments = [];
+
+    if (attachments && attachments.length > 0) {
+      attachments.forEach((attachment, index) => {
+        const filename = (attachment.filename || "").toLowerCase();
+        const contentType = (attachment.contentType || "").toLowerCase();
+
+        // Check if this is the header logo
+        const isHeaderLogo = index === headerLogoIndex;
+
+        if (isHeaderLogo && attachment.content) {
+          // Header logo with content - add as inline CID attachment (use same CID as in HTML/template)
+          const logoCID = attachment.cid || "header-logo";
+          inlineAttachments.push({
+            filename: attachment.filename || "header-logo.png",
+            content: attachment.content,
+            encoding: attachment.encoding || "base64",
+            contentType:
+              attachment.contentType ||
+              (filename.endsWith(".png")
+                ? "image/png"
+                : filename.endsWith(".jpg") || filename.endsWith(".jpeg")
+                ? "image/jpeg"
+                : filename.endsWith(".gif")
+                ? "image/gif"
+                : "image/png"),
+            cid: logoCID, // Must match cid in HTML (e.g. trizen-logo or header-logo)
+            contentDisposition: "inline", // Mark as inline so it appears in body, not as attachment
+          });
+          console.log(
+            "📷 Header logo added as inline CID attachment (cid: " + logoCID + ") – displays above content"
+          );
+        } else if (isHeaderLogo && attachment.url) {
+          // Header logo with URL - embedded directly in HTML, no attachment needed
+          console.log("✅ Header logo using hosted URL (no attachment needed)");
+        } else if (!isHeaderLogo) {
+          // Regular attachments (not header logo)
+          if (attachment.content || attachment.path) {
+            const attachmentObj = {
+              filename: attachment.filename || "attachment.pdf",
+              content: attachment.content,
+              path: attachment.path,
+              encoding: attachment.encoding || "base64",
+              contentType:
+                attachment.contentType ||
+                (filename.endsWith(".png")
+                  ? "image/png"
+                  : filename.endsWith(".jpg") || filename.endsWith(".jpeg")
+                  ? "image/jpeg"
+                  : filename.endsWith(".gif")
+                  ? "image/gif"
+                  : filename.endsWith(".pdf")
+                  ? "application/pdf"
+                  : "application/octet-stream"),
+            };
+            regularAttachments.push(attachmentObj);
+          } else if (attachment.url) {
+            // URL-based attachment - Nodemailer will fetch content
+            console.log(
+              `📎 Adding URL attachment: ${
+                attachment.filename || "unnamed"
+              } (URL: ${attachment.url})`
+            );
+            regularAttachments.push({
+              filename: attachment.filename || "attachment",
+              path: attachment.url, // Nodemailer uses 'path' for URLs too
+              contentType: attachment.contentType,
+            });
+          }
+        }
+      });
+    }
+
+    // Combine inline and regular attachments
+    const allAttachments = [...inlineAttachments, ...regularAttachments];
+    if (allAttachments.length > 0) {
+      mailOptions.attachments = allAttachments;
+      console.log("� Attachments:", {
+        inline: inlineAttachments.length,
+        regular: regularAttachments.length,
+        total: allAttachments.length,
+      });
+    } else {
+      console.log("📎 No attachments");
+    }
 
     const info = await transporter.sendMail(mailOptions);
     console.log(`✅ Custom email sent successfully to ${clientEmail}`);
-    console.log('Message ID:', info.messageId);
+    console.log("Message ID:", info.messageId);
     
     return { 
       success: true, 
       messageId: info.messageId,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
   } catch (error) {
-    console.error('❌ Error sending custom email:', error);
+    console.error("❌ Error sending custom email:", error);
     
-    if (error.code === 'EAUTH') {
-      console.error('Authentication failed. Check SMTP credentials.');
-    } else if (error.code === 'ECONNECTION') {
-      console.error('Connection failed. Check SMTP host and port.');
+    if (error.code === "EAUTH") {
+      console.error("Authentication failed. Check SMTP credentials.");
+    } else if (error.code === "ECONNECTION") {
+      console.error("Connection failed. Check SMTP host and port.");
     }
     
     throw new Error(`Failed to send custom email: ${error.message}`);
@@ -963,105 +1395,284 @@ export const sendCustomEmail = async (clientEmail, clientName, subject, message,
 };
 
 // Send bulk emails to multiple clients with optional attachments
-export const sendBulkEmails = async (clients, subject, message, isHtml = false, attachments = []) => {
+// Optimized for Microsoft Office365 with parallel batch processing
+export const sendBulkEmails = async (
+  clients,
+  subject,
+  message,
+  isHtml = false,
+  attachments = []
+) => {
   try {
     const transporter = createTransporter();
     const results = [];
     
-    for (const client of clients) {
-      try {
+    // Detect Microsoft email
+    const isMicrosoft = 
+      process.env.SMTP_HOST?.includes("office365") ||
+      process.env.SMTP_HOST?.includes("outlook") ||
+      process.env.SMTP_HOST?.includes("hotmail") ||
+      process.env.SMTP_HOST?.includes("microsoft");
+
+    // Microsoft-optimized batch settings
+    // Microsoft allows ~30 emails/minute, so we send 5 per batch with 2s delay = ~30/min
+    const BATCH_SIZE = isMicrosoft ? 5 : 10;
+    const DELAY_BETWEEN_BATCHES = isMicrosoft ? 2000 : 200; // 2 seconds for Microsoft
+    const DELAY_BETWEEN_EMAILS = isMicrosoft ? 100 : 50; // Small stagger within batch
+
+    // Process message once for all clients
+    let processedMessage = message;
+    if (!isHtml) {
+      processedMessage = convertTextToHtml(message);
+    }
+
+    // Find header logo index from attachments (once for all clients)
+    let headerLogoIndex = -1;
+    let headerLogoCID = "header-logo"; // Default CID, but use attachment's CID if provided
+    if (attachments && attachments.length > 0) {
+      attachments.forEach((attachment, index) => {
+        const filename = (attachment.filename || "").toLowerCase();
+        const contentType = (attachment.contentType || "").toLowerCase();
+        const cid = attachment.cid || "";
+
+        if (
+          (contentType.startsWith("image/") &&
+            (filename.includes("header") ||
+              filename.includes("logo") ||
+              cid === "header-logo" ||
+              cid === "trizen-logo")) ||
+          cid === "header-logo" ||
+          cid === "trizen-logo"
+        ) {
+          headerLogoIndex = index;
+          // Use the attachment's CID if provided, otherwise default to "header-logo"
+          if (attachment.cid) {
+            headerLogoCID = attachment.cid;
+          } else {
+            attachment.cid = headerLogoCID;
+          }
+        }
+      });
+    }
+
+    // Process in optimized batches
+    for (let i = 0; i < clients.length; i += BATCH_SIZE) {
+      const batch = clients.slice(i, i + BATCH_SIZE);
+      
+      // Send batch with staggered delays
+      const batchPromises = batch.map(async (client, batchIndex) => {
+        // Stagger emails within batch to avoid overwhelming SMTP
+        if (batchIndex > 0) {
+          await new Promise((resolve) => setTimeout(resolve, DELAY_BETWEEN_EMAILS * batchIndex));
+        }
+
+        try {
+          // Replace [Name] placeholder for each client
+          let clientMessage = processedMessage;
+          if (isHtml) {
+            clientMessage = message.replace(/\[Name\]/g, client.name);
+          } else {
+            clientMessage = processedMessage.replace(/\[Name\]/g, client.name);
+          }
+
         const mailOptions = {
           from: {
-            name: 'Trizen Ventures',
-            address: 'support@trizenventures.com'
+              name: "Trizen Ventures",
+              address: "support@trizenventures.com",
           },
           to: client.email,
           subject: subject,
-          html: isHtml ? message.replace(/\[Name\]/g, client.name) : getSupportEmailTemplate('custom', {
+            html: getSupportEmailTemplate("custom", {
             clientName: client.name,
             subject,
-            message
+              message: clientMessage,
+              headerLogo:
+                headerLogoIndex >= 0 ? attachments[headerLogoIndex] : null,
+              attachments: attachments,
           }),
-          text: isHtml ? message.replace(/<[^>]*>/g, '').replace(/\[Name\]/g, client.name) : message.replace(/\[Name\]/g, client.name),
+            text: isHtml
+              ? message.replace(/<[^>]*>/g, "").replace(/\[Name\]/g, client.name)
+              : message.replace(/\[Name\]/g, client.name),
           headers: {
-            'X-Mailer': 'Trizen Ventures Support System',
-            'X-Priority': '3',
-          }
+              "X-Mailer": "Trizen Ventures Support System",
+              "X-Priority": "3",
+            },
         };
 
-        // Add attachments if provided
+          // Separate header logo (inline only) from regular attachments
+          const inlineAttachments = [];
+          const regularAttachments = [];
+
         if (attachments && attachments.length > 0) {
-          mailOptions.attachments = attachments.map(attachment => {
-            if (typeof attachment === 'string') {
-              // If attachment is a file path
-              return {
-                filename: attachment.split('/').pop() || 'attachment.pdf',
-                path: attachment
-              };
+            attachments.forEach((attachment, index) => {
+              if (typeof attachment === "string") {
+                // File path - regular attachment
+                regularAttachments.push({
+                  filename: attachment.split("/").pop() || "attachment.pdf",
+                  path: attachment,
+                });
             } else if (attachment.content) {
-              // If attachment is base64 content
-              const attachmentObj = {
-                filename: attachment.filename || 'attachment.pdf',
+                // Base64 content
+                const filename = (attachment.filename || "").toLowerCase();
+                const contentType = (attachment.contentType || "").toLowerCase();
+                const isHeaderLogo = index === headerLogoIndex;
+
+                if (isHeaderLogo) {
+                  // Header logo: inline only, use the attachment's CID (e.g., "trizen-logo")
+                  inlineAttachments.push({
+                    cid: attachment.cid || headerLogoCID,
+                    content: attachment.content,
+                    encoding: attachment.encoding || "base64",
+                    contentType:
+                      attachment.contentType ||
+                      (filename.endsWith(".png")
+                        ? "image/png"
+                        : filename.endsWith(".jpg") || filename.endsWith(".jpeg")
+                        ? "image/jpeg"
+                        : filename.endsWith(".gif")
+                        ? "image/gif"
+                        : "image/png"),
+                    contentDisposition: "inline", // Mark as inline, not attachment
+                  });
+                } else if (attachment.cid) {
+                  // Other inline images
+                  inlineAttachments.push({
+                    cid: attachment.cid,
                 content: attachment.content,
-                encoding: attachment.encoding || 'base64',
-                contentType: attachment.contentType || 'application/pdf'
-              };
-              
-              // Add CID for embedded images
-              if (attachment.cid) {
-                attachmentObj.cid = attachment.cid;
-              }
-              
-              return attachmentObj;
+                    encoding: attachment.encoding || "base64",
+                    contentType:
+                      attachment.contentType ||
+                      (filename.endsWith(".png")
+                        ? "image/png"
+                        : filename.endsWith(".jpg") || filename.endsWith(".jpeg")
+                        ? "image/jpeg"
+                        : filename.endsWith(".gif")
+                        ? "image/gif"
+                        : "image/png"),
+                  });
+                } else {
+                  // Regular file attachment
+                  regularAttachments.push({
+                    filename: attachment.filename || "attachment.pdf",
+                    content: attachment.content,
+                    encoding: attachment.encoding || "base64",
+                    contentType:
+                      attachment.contentType ||
+                      (filename.endsWith(".png")
+                        ? "image/png"
+                        : filename.endsWith(".jpg") || filename.endsWith(".jpeg")
+                        ? "image/jpeg"
+                        : filename.endsWith(".gif")
+                        ? "image/gif"
+                        : "application/pdf"),
+                  });
+                }
             } else if (attachment.path) {
-              // If attachment has path property
-              const attachmentObj = {
-                filename: attachment.filename || attachment.path.split('/').pop() || 'attachment.pdf',
-                path: attachment.path
-              };
+                // File path attachment
+                const filename = (
+                  attachment.filename ||
+                  attachment.path.split("/").pop() ||
+                  ""
+                ).toLowerCase();
+                const isHeaderLogo = index === headerLogoIndex;
+
+                if (isHeaderLogo) {
+                  // Header logo from path - read and embed inline, use attachment's CID
+                  inlineAttachments.push({
+                    cid: attachment.cid || headerLogoCID,
+                    path: attachment.path,
+                    contentType:
+                      attachment.contentType ||
+                      (filename.endsWith(".png")
+                        ? "image/png"
+                        : filename.endsWith(".jpg") || filename.endsWith(".jpeg")
+                        ? "image/jpeg"
+                        : filename.endsWith(".gif")
+                        ? "image/gif"
+                        : "image/png"),
+                  });
+                } else if (attachment.cid) {
+                  inlineAttachments.push({
+                    cid: attachment.cid,
+                    path: attachment.path,
+                  });
+                } else {
+                  regularAttachments.push({
+                    filename:
+                      attachment.filename ||
+                      attachment.path.split("/").pop() ||
+                      "attachment.pdf",
+                    path: attachment.path,
+                  });
+                }
+              } else if (attachment.url) {
+                const isHeaderLogo = index === headerLogoIndex;
               
-              // Add CID for embedded images
-              if (attachment.cid) {
-                attachmentObj.cid = attachment.cid;
+                // Only add URL attachments if they are NOT the header logo
+                // Header logo URLs are handled directly in the HTML template
+                if (!isHeaderLogo) {
+                  regularAttachments.push({
+                    filename: attachment.filename || "attachment",
+                    path: attachment.url,
+                    contentType: attachment.contentType,
+                  });
               }
-              
-              return attachmentObj;
-            }
-            return attachment;
-          });
+              }
+            });
+          }
+
+          // Combine inline and regular attachments
+          const allAttachments = [...inlineAttachments, ...regularAttachments];
+          if (allAttachments.length > 0) {
+            mailOptions.attachments = allAttachments;
         }
 
         const info = await transporter.sendMail(mailOptions);
-        results.push({
+          
+          console.log(
+            `✅ Bulk email sent successfully to ${client.email}`
+          );
+
+          return {
           email: client.email,
           success: true,
-          messageId: info.messageId
-        });
-        
-        console.log(`✅ Bulk email with attachments sent successfully to ${client.email}`);
-        
-        // Rate limiting - wait 1 second between emails
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
+            messageId: info.messageId,
+          };
       } catch (error) {
         console.error(`❌ Failed to send email to ${client.email}:`, error);
-        results.push({
+          return {
           email: client.email,
           success: false,
-          error: error.message
-        });
+            error: error.message,
+          };
+        }
+      });
+
+      // Wait for batch to complete
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
+
+      // Delay between batches (respects Microsoft's 30/min limit)
+      if (i + BATCH_SIZE < clients.length) {
+        await new Promise((resolve) => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
       }
+
+      // Progress logging
+      const sent = results.filter((r) => r.success).length;
+      const failed = results.filter((r) => !r.success).length;
+      const progress = ((i + batch.length) / clients.length * 100).toFixed(1);
+      console.log(`📧 Progress: ${sent} sent, ${failed} failed (${i + batch.length}/${clients.length} - ${progress}%)`);
     }
     
     return {
       success: true,
       results,
-      totalSent: results.filter(r => r.success).length,
-      totalFailed: results.filter(r => !r.success).length,
-      timestamp: new Date().toISOString()
+      totalSent: results.filter((r) => r.success).length,
+      totalFailed: results.filter((r) => !r.success).length,
+      timestamp: new Date().toISOString(),
     };
   } catch (error) {
-    console.error('❌ Error in bulk email sending:', error);
+    console.error("❌ Error in bulk email sending:", error);
     throw new Error(`Failed to send bulk emails: ${error.message}`);
   }
 };
@@ -1074,30 +1685,169 @@ export const testEmailConfig = async () => {
     // Verify connection
     await transporter.verify();
     
-    console.log('✅ Support email configuration test passed');
+    console.log("✅ Support email configuration test passed");
     return { 
       success: true, 
-      message: 'Support email configuration is valid and ready to send emails',
-      timestamp: new Date().toISOString()
+      message: "Support email configuration is valid and ready to send emails",
+      timestamp: new Date().toISOString(),
     };
   } catch (error) {
-    console.error('❌ Support email configuration test failed:', error);
+    console.error("❌ Support email configuration test failed:", error);
     
-    let errorDetails = 'Unknown error';
-    if (error.code === 'EAUTH') {
-      errorDetails = 'Authentication failed. Check your email and app password.';
-    } else if (error.code === 'ECONNECTION') {
-      errorDetails = 'Connection failed. Check SMTP host and port settings.';
-    } else if (error.code === 'ETIMEDOUT') {
-      errorDetails = 'Connection timeout. Check your internet connection and firewall settings.';
+    let errorDetails = "Unknown error";
+    if (error.code === "EAUTH") {
+      errorDetails =
+        "Authentication failed. Check your email and app password.";
+    } else if (error.code === "ECONNECTION") {
+      errorDetails = "Connection failed. Check SMTP host and port settings.";
+    } else if (error.code === "ETIMEDOUT") {
+      errorDetails =
+        "Connection timeout. Check your internet connection and firewall settings.";
     }
     
     return { 
       success: false, 
       error: error.message,
       details: errorDetails,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
+  }
+};
+
+// Send Final Year Project Training Email
+export const sendFinalYearProjectEmail = async (recipientEmail) => {
+  try {
+    const transporter = createTransporter();
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Final Year Project & Research Training</title>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f4f4f4; padding: 20px 0;">
+          <tr>
+            <td align="center">
+              <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                <!-- Header -->
+                <tr>
+                  <td style="background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); padding: 40px 30px; text-align: center;">
+                    <div style="font-size: 24px; font-weight: bold; margin-bottom: 12px; color: #ffffff;">
+                      🚀 Trizen Ventures
+                    </div>
+                    <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold;">
+                      Final Year Project & Research Training
+                    </h1>
+                    <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px;">
+                      End-to-End Deliverables
+                    </p>
+                  </td>
+                </tr>
+                
+                <!-- Content -->
+                <tr>
+                  <td style="padding: 40px 30px;">
+                    <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                      Dear Student,
+                    </p>
+                    
+                    <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                      Your final year project is a key academic milestone and should demonstrate clear understanding, implementation, and research quality.
+                    </p>
+                    
+                    <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 25px 0;">
+                      At <strong>Trizen Academy</strong>, we train B.Tech and M.Tech students to complete their final year projects end-to-end, covering every required deliverable from start to submission.
+                    </p>
+                    
+                    <div style="background-color: #f8f9fa; border-left: 4px solid #1e40af; padding: 20px; margin: 0 0 25px 0; border-radius: 4px;">
+                      <h2 style="color: #1e40af; font-size: 18px; margin: 0 0 15px 0; font-weight: bold;">
+                        End-to-End Deliverables Include:
+                      </h2>
+                      <ol style="color: #333333; font-size: 15px; line-height: 1.8; margin: 0; padding-left: 20px;">
+                        <li>Finalized industry-relevant problem statement</li>
+                        <li>Complete working project code using updated technologies</li>
+                        <li>System architecture, flowcharts, and diagrams</li>
+                        <li>PPT, documentation, and final reports (as per college format)</li>
+                        <li>Live demo preparation and explanation</li>
+                        <li>Research paper drafting (IEEE/Scopus standards, low plagiarism)</li>
+                      </ol>
+                    </div>
+                    
+                    <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0;">
+                      Students work through the entire project lifecycle, ensuring confidence during vivas, reviews, placements, and research discussions.
+                    </p>
+                    
+                    <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 0 0 30px 0;">
+                      <strong>Domains include:</strong> CSE, AIML, AI, Blockchain, IoT, ECE, VLSI, Embedded Systems, and more.
+                    </p>
+                    
+                    <!-- Contact Section -->
+                    <div style="background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); border-radius: 8px; padding: 25px; text-align: center; margin: 0 0 20px 0;">
+                      <h3 style="color: #ffffff; font-size: 18px; margin: 0 0 15px 0; font-weight: bold;">
+                        Get Started Today!
+                      </h3>
+                      <p style="color: #ffffff; font-size: 15px; line-height: 1.6; margin: 0 0 15px 0;">
+                        To know more about project formats and training details, contact us:
+                      </p>
+                      <div style="margin: 15px 0 0 0;">
+                        <p style="color: #ffffff; margin: 8px 0; font-size: 15px;">
+                          🌐 <strong>Website:</strong> <a href="https://academy.trizenventures.com" style="color: #ffffff; text-decoration: underline;">academy.trizenventures.com</a>
+                        </p>
+                        <p style="color: #ffffff; margin: 8px 0; font-size: 15px;">
+                          📞 <strong>Phone:</strong> +91 8639648822
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <p style="color: #333333; font-size: 16px; line-height: 1.6; margin: 20px 0 0 0;">
+                      Regards,<br>
+                      <strong>Trizen Academy</strong>
+                    </p>
+                  </td>
+                </tr>
+                
+                <!-- Footer -->
+                <tr>
+                  <td style="background-color: #f8f9fa; padding: 20px 30px; text-align: center; border-top: 1px solid #e9ecef;">
+                    <p style="color: #6c757d; font-size: 13px; margin: 0 0 5px 0;">
+                      © ${new Date().getFullYear()} Trizen Academy. All rights reserved.
+                    </p>
+                    <p style="color: #6c757d; font-size: 12px; margin: 5px 0 0 0;">
+                      This email was sent to ${recipientEmail}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const mailOptions = {
+      from: `"${process.env.EMAIL_FROM_NAME || "Trizen Academy"}" <${
+        process.env.EMAIL_FROM_ADDRESS || process.env.SMTP_USER
+      }>`,
+      to: recipientEmail,
+      subject:
+        "Final Year Project & Research Training – End-to-End Deliverables",
+      html: htmlContent,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+
+    return {
+      success: true,
+      messageId: info.messageId,
+      recipient: recipientEmail,
+    };
+  } catch (error) {
+    console.error("Error sending final year project email:", error);
+    throw error;
   }
 };
 
@@ -1109,5 +1859,6 @@ export default {
   sendWelcomeEmail,
   sendCustomEmail,
   sendBulkEmails,
-  testEmailConfig
+  testEmailConfig,
+  sendFinalYearProjectEmail,
 };
