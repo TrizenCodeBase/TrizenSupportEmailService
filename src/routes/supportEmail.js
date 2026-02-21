@@ -40,7 +40,7 @@ const customEmailSchema = Joi.object({
   clientEmail: Joi.string().email().required(),
   clientName: Joi.string().min(1).max(100).required(),
   subject: Joi.string().min(1).max(200).required(),
-  message: Joi.string().min(1).max(5000).required(),
+  message: Joi.string().min(1).max(50000).required(), // Increased from 5000 to 50000 for HTML templates
   isHtml: Joi.boolean().optional().default(false),
   attachments: Joi.array().items(
     Joi.alternatives().try(
@@ -71,25 +71,34 @@ const bulkEmailSchema = Joi.object({
     })
   ).min(1).max(1000).required(), // Increased from 100 to 1000 - can be removed entirely if needed
   subject: Joi.string().min(1).max(200).required(),
-  message: Joi.string().min(1).max(5000).required(),
+  message: Joi.string().min(1).max(50000).required(), // Increased from 5000 to 50000 for HTML templates
   isHtml: Joi.boolean().optional().default(false),
   attachments: Joi.array().items(
     Joi.alternatives().try(
       Joi.string(), // File path
+      // Attachment with base64 content
       Joi.object({
         filename: Joi.string().required(),
         content: Joi.string().required(),
         encoding: Joi.string().optional().default('base64'),
         contentType: Joi.string().optional().default('application/pdf'),
         cid: Joi.string().optional() // Content-ID for embedded images
-      }),
+      }).unknown(false), // Don't allow unknown properties for content-based attachments
+      // Attachment with URL (for header logo) - must have url, no content required
+      Joi.object({
+        filename: Joi.string().required(),
+        url: Joi.string().pattern(/^https?:\/\/.+/).required(), // More lenient URL validation
+        contentType: Joi.string().optional(),
+        cid: Joi.string().optional() // Content-ID for embedded images
+      }).unknown(false), // Don't allow unknown properties
+      // Attachment with file path
       Joi.object({
         filename: Joi.string().required(),
         path: Joi.string().required(),
         cid: Joi.string().optional() // Content-ID for embedded images
       })
     )
-  ).optional().default([])
+  ).optional().allow(null).default([])
 });
 
 const applicationStatusSchema = Joi.object({

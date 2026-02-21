@@ -2,6 +2,13 @@ import nodemailer from "nodemailer";
 
 // Create reusable transporter object using SMTP transport for support@trizenventures.com
 const createTransporter = () => {
+  // Detect Microsoft email providers
+  const isMicrosoft = 
+    process.env.SMTP_HOST?.includes("outlook") ||
+    process.env.SMTP_HOST?.includes("office365") ||
+    process.env.SMTP_HOST?.includes("hotmail") ||
+    process.env.SMTP_HOST?.includes("microsoft");
+
   const emailConfig = {
     host: process.env.SMTP_HOST || "smtp.gmail.com",
     port: parseInt(process.env.SMTP_PORT) || 587,
@@ -10,23 +17,25 @@ const createTransporter = () => {
       user: process.env.SMTP_USER || "support@trizenventures.com",
       pass: process.env.SMTP_PASS,
     },
-    // Professional configurations
+    // Microsoft-optimized settings
     pool: true,
-    maxConnections: 5,
-    maxMessages: 100,
+    maxConnections: isMicrosoft ? 10 : 5, // Increased for Microsoft
+    maxMessages: isMicrosoft ? 500 : 100, // Increased for Microsoft
     rateDelta: 1000, // 1 second
-    rateLimit: 10, // 10 emails per second max
+    rateLimit: isMicrosoft ? 30 : 10, // Microsoft allows ~30 emails/minute
   };
 
-  // Add specific configurations for different providers
-  if (
-    process.env.SMTP_HOST?.includes("outlook") ||
-    process.env.SMTP_HOST?.includes("hotmail")
-  ) {
+  // Microsoft-specific configuration
+  if (isMicrosoft) {
     emailConfig.requireTLS = true;
     emailConfig.tls = {
       ciphers: "SSLv3",
+      rejectUnauthorized: false, // Some Microsoft servers need this
     };
+    // Microsoft connection timeouts
+    emailConfig.connectionTimeout = 60000; // 60 seconds
+    emailConfig.socketTimeout = 60000;
+    emailConfig.greetingTimeout = 30000;
   }
 
   return nodemailer.createTransport(emailConfig);
@@ -161,7 +170,7 @@ const getSupportEmailTemplate = (type, data) => {
         </body>
         </html>
       `;
-
+    
     case "welcome":
       return `
         <!DOCTYPE html>
@@ -210,7 +219,7 @@ const getSupportEmailTemplate = (type, data) => {
         </body>
         </html>
       `;
-
+    
     case "application-confirmation":
       return `
         <!DOCTYPE html>
@@ -355,7 +364,7 @@ const getSupportEmailTemplate = (type, data) => {
         </body>
         </html>
       `;
-
+    
     case "custom":
       // Find header logo from attachments (look for header logo by filename or cid)
       let headerLogo = data.headerLogo;
@@ -370,28 +379,44 @@ const getSupportEmailTemplate = (type, data) => {
             (contentType.startsWith("image/") &&
               (filename.includes("header") ||
                 filename.includes("logo") ||
-                cid === "header-logo")) ||
-            cid === "header-logo"
+                cid === "header-logo" ||
+                cid === "trizen-logo")) ||
+            cid === "header-logo" ||
+            cid === "trizen-logo"
           );
         });
       }
 
-      // Embed header logo in HTML
-      // Use URL if provided (best), otherwise use CID for inline attachment
+      // Only treat as "has logo" when there's an actual embedded image (cid: or <img), not the word "logo" in text/comments
+      const messageContent = data.message || data.content || "";
+      const hasEmbeddedImage =
+        messageContent.includes("cid:") || messageContent.includes("<img");
+      const isFullHtmlDocument = messageContent.includes("<!DOCTYPE html>");
+
+      // If message is already a complete HTML document with its own structure, return it as-is (no wrapper)
+      if (isFullHtmlDocument) {
+        console.log("ℹ️  Message is complete HTML, using as-is without template wrapper");
+        return messageContent;
+      }
+
+      // Embed header logo above content when we have a header logo and message doesn't already embed an image
       let logoSrc = "";
-      if (headerLogo && headerLogo.url) {
+      if (!hasEmbeddedImage && headerLogo && headerLogo.url) {
         // Hosted URL - best for Gmail (no attachment, loads from server)
         logoSrc = headerLogo.url;
         console.log(
           "✅ Header logo using hosted URL (best for Gmail):",
           logoSrc
         );
-      } else if (headerLogo && headerLogo.content) {
+      } else if (!hasEmbeddedImage && headerLogo && headerLogo.content) {
         // Base64 content - use CID reference to inline attachment (Gmail compatible)
-        logoSrc = "cid:header-logo";
+        const logoCID = headerLogo.cid || "header-logo";
+        logoSrc = `cid:${logoCID}`;
         console.log(
-          "✅ Header logo using CID inline attachment (Gmail compatible)"
+          `✅ Header logo using CID inline attachment (${logoSrc}) – displayed above content`
         );
+      } else if (hasEmbeddedImage) {
+        console.log("ℹ️  Message already contains embedded image, skipping template logo injection");
       } else {
         console.log("⚠️  No header logo found in template");
       }
@@ -420,12 +445,11 @@ const getSupportEmailTemplate = (type, data) => {
                       ? `
                   <!-- Header Logo -->
                   <tr>
-                    <td align="center" style="padding:0; margin:0; height:120px; overflow:hidden; line-height:0;">
+                    <td align="center" style="padding:0; margin:0; line-height:0;">
                       <img 
                         src="${logoSrc}" 
                         alt="Trizen Ventures" 
-                        width="600" 
-                        style="display:block; width:100%; max-width:600px; height:120px; object-fit:cover; object-position:center; border:0; outline:none; margin:0; padding:0;" 
+                        style="display:block; width:100%; max-width:600px; height:auto; border:0; outline:none; margin:0; padding:0;" 
                       />
                     </td>
                   </tr>
@@ -436,7 +460,7 @@ const getSupportEmailTemplate = (type, data) => {
                   <!-- Message Content -->
                   <tr>
                     <td style="padding:30px 20px; font-family:Arial, sans-serif; font-size:16px; line-height:1.6; color:#333333;">
-                      ${data.message || data.content || ""}
+                      ${messageContent}
                     </td>
                   </tr>
                   
@@ -663,7 +687,7 @@ const getSupportEmailTemplate = (type, data) => {
         </body>
         </html>
       `;
-
+    
     default:
       return "";
   }
@@ -679,7 +703,7 @@ export const sendApplicationConfirmationEmail = async (
 ) => {
   try {
     const transporter = createTransporter();
-
+    
     const mailOptions = {
       from: {
         name: "Trizen Ventures HR",
@@ -815,9 +839,9 @@ For support, contact us at support@trizenventures.com
       `✅ Application acceptance email sent successfully to ${applicantEmail}`
     );
     console.log("Message ID:", info.messageId);
-
-    return {
-      success: true,
+    
+    return { 
+      success: true, 
       messageId: info.messageId,
       timestamp: new Date().toISOString(),
     };
@@ -907,7 +931,7 @@ For support, contact us at support@trizenventures.com
     } else if (error.code === "ECONNECTION") {
       console.error("Connection failed. Check SMTP host and port.");
     }
-
+    
     throw new Error(
       `Failed to send application rejection email: ${error.message}`
     );
@@ -924,7 +948,7 @@ export const sendSupportResponseEmail = async (
 ) => {
   try {
     const transporter = createTransporter();
-
+    
     const mailOptions = {
       from: {
         name: "Trizen Ventures Support",
@@ -973,21 +997,21 @@ Website: https://trizenventures.com
       `✅ Support response email sent successfully to ${clientEmail}`
     );
     console.log("Message ID:", info.messageId);
-
-    return {
-      success: true,
+    
+    return { 
+      success: true, 
       messageId: info.messageId,
       timestamp: new Date().toISOString(),
     };
   } catch (error) {
     console.error("❌ Error sending support response email:", error);
-
+    
     if (error.code === "EAUTH") {
       console.error("Authentication failed. Check SMTP credentials.");
     } else if (error.code === "ECONNECTION") {
       console.error("Connection failed. Check SMTP host and port.");
     }
-
+    
     throw new Error(`Failed to send support response email: ${error.message}`);
   }
 };
@@ -996,7 +1020,7 @@ Website: https://trizenventures.com
 export const sendWelcomeEmail = async (clientEmail, clientName) => {
   try {
     const transporter = createTransporter();
-
+    
     const mailOptions = {
       from: {
         name: "Trizen Ventures",
@@ -1029,9 +1053,9 @@ Website: https://trizenventures.com
 
     const info = await transporter.sendMail(mailOptions);
     console.log(`✅ Welcome email sent successfully to ${clientEmail}`);
-
-    return {
-      success: true,
+    
+    return { 
+      success: true, 
       messageId: info.messageId,
       timestamp: new Date().toISOString(),
     };
@@ -1185,7 +1209,8 @@ export const sendCustomEmail = async (
         const isHeaderLogo =
           (isImage &&
             (filename.includes("header") || filename.includes("logo"))) ||
-          cid === "header-logo";
+          cid === "header-logo" ||
+          cid === "trizen-logo";
 
         console.log(`  Attachment ${index}:`, {
           filename: attachment.filename,
@@ -1219,7 +1244,7 @@ export const sendCustomEmail = async (
     } else {
       console.log(`✅ Header logo detected at index ${headerLogoIndex}`);
     }
-
+    
     const mailOptions = {
       from: {
         name: "Trizen Ventures",
@@ -1228,16 +1253,10 @@ export const sendCustomEmail = async (
       to: clientEmail,
       subject: subject,
       html: (() => {
-        // Prepare header logo for template
+        // Prepare header logo for template (keep attachment's cid so template and inline attachment match)
         const headerLogoForTemplate =
           headerLogoIndex >= 0
-            ? {
-                ...attachments[headerLogoIndex],
-                // Only set CID if using content-based embedding (not URL)
-                ...(attachments[headerLogoIndex].url
-                  ? {}
-                  : { cid: "header-logo" }),
-              }
+            ? { ...attachments[headerLogoIndex] }
             : null;
 
         console.log("📧 Preparing email template:", {
@@ -1249,8 +1268,8 @@ export const sendCustomEmail = async (
         });
 
         return getSupportEmailTemplate("custom", {
-          clientName,
-          subject,
+        clientName,
+        subject,
           message: processedMessage,
           headerLogo: headerLogoForTemplate,
           attachments: attachments,
@@ -1278,7 +1297,8 @@ export const sendCustomEmail = async (
         const isHeaderLogo = index === headerLogoIndex;
 
         if (isHeaderLogo && attachment.content) {
-          // Header logo with content - add as inline CID attachment
+          // Header logo with content - add as inline CID attachment (use same CID as in HTML/template)
+          const logoCID = attachment.cid || "header-logo";
           inlineAttachments.push({
             filename: attachment.filename || "header-logo.png",
             content: attachment.content,
@@ -1292,11 +1312,11 @@ export const sendCustomEmail = async (
                 : filename.endsWith(".gif")
                 ? "image/gif"
                 : "image/png"),
-            cid: "header-logo", // Content-ID for embedding in HTML
-            contentDisposition: "inline", // Mark as inline, not attachment
+            cid: logoCID, // Must match cid in HTML (e.g. trizen-logo or header-logo)
+            contentDisposition: "inline", // Mark as inline so it appears in body, not as attachment
           });
           console.log(
-            "📷 Header logo added as inline CID attachment (will display in Gmail)"
+            "📷 Header logo added as inline CID attachment (cid: " + logoCID + ") – displays above content"
           );
         } else if (isHeaderLogo && attachment.url) {
           // Header logo with URL - embedded directly in HTML, no attachment needed
@@ -1355,26 +1375,27 @@ export const sendCustomEmail = async (
     const info = await transporter.sendMail(mailOptions);
     console.log(`✅ Custom email sent successfully to ${clientEmail}`);
     console.log("Message ID:", info.messageId);
-
-    return {
-      success: true,
+    
+    return { 
+      success: true, 
       messageId: info.messageId,
       timestamp: new Date().toISOString(),
     };
   } catch (error) {
     console.error("❌ Error sending custom email:", error);
-
+    
     if (error.code === "EAUTH") {
       console.error("Authentication failed. Check SMTP credentials.");
     } else if (error.code === "ECONNECTION") {
       console.error("Connection failed. Check SMTP host and port.");
     }
-
+    
     throw new Error(`Failed to send custom email: ${error.message}`);
   }
 };
 
 // Send bulk emails to multiple clients with optional attachments
+// Optimized for Microsoft Office365 with parallel batch processing
 export const sendBulkEmails = async (
   clients,
   subject,
@@ -1385,6 +1406,19 @@ export const sendBulkEmails = async (
   try {
     const transporter = createTransporter();
     const results = [];
+    
+    // Detect Microsoft email
+    const isMicrosoft = 
+      process.env.SMTP_HOST?.includes("office365") ||
+      process.env.SMTP_HOST?.includes("outlook") ||
+      process.env.SMTP_HOST?.includes("hotmail") ||
+      process.env.SMTP_HOST?.includes("microsoft");
+
+    // Microsoft-optimized batch settings
+    // Microsoft allows ~30 emails/minute, so we send 5 per batch with 2s delay = ~30/min
+    const BATCH_SIZE = isMicrosoft ? 5 : 10;
+    const DELAY_BETWEEN_BATCHES = isMicrosoft ? 2000 : 200; // 2 seconds for Microsoft
+    const DELAY_BETWEEN_EMAILS = isMicrosoft ? 100 : 50; // Small stagger within batch
 
     // Process message once for all clients
     let processedMessage = message;
@@ -1394,6 +1428,7 @@ export const sendBulkEmails = async (
 
     // Find header logo index from attachments (once for all clients)
     let headerLogoIndex = -1;
+    let headerLogoCID = "header-logo"; // Default CID, but use attachment's CID if provided
     if (attachments && attachments.length > 0) {
       attachments.forEach((attachment, index) => {
         const filename = (attachment.filename || "").toLowerCase();
@@ -1404,204 +1439,231 @@ export const sendBulkEmails = async (
           (contentType.startsWith("image/") &&
             (filename.includes("header") ||
               filename.includes("logo") ||
-              cid === "header-logo")) ||
-          cid === "header-logo"
+              cid === "header-logo" ||
+              cid === "trizen-logo")) ||
+          cid === "header-logo" ||
+          cid === "trizen-logo"
         ) {
           headerLogoIndex = index;
-          if (!attachment.cid) {
-            attachment.cid = "header-logo";
+          // Use the attachment's CID if provided, otherwise default to "header-logo"
+          if (attachment.cid) {
+            headerLogoCID = attachment.cid;
+          } else {
+            attachment.cid = headerLogoCID;
           }
         }
       });
     }
 
-    for (const client of clients) {
-      try {
-        // Replace [Name] placeholder for each client
-        let clientMessage = processedMessage;
-        if (isHtml) {
-          clientMessage = message.replace(/\[Name\]/g, client.name);
-        } else {
-          clientMessage = processedMessage.replace(/\[Name\]/g, client.name);
+    // Process in optimized batches
+    for (let i = 0; i < clients.length; i += BATCH_SIZE) {
+      const batch = clients.slice(i, i + BATCH_SIZE);
+      
+      // Send batch with staggered delays
+      const batchPromises = batch.map(async (client, batchIndex) => {
+        // Stagger emails within batch to avoid overwhelming SMTP
+        if (batchIndex > 0) {
+          await new Promise((resolve) => setTimeout(resolve, DELAY_BETWEEN_EMAILS * batchIndex));
         }
+
+        try {
+          // Replace [Name] placeholder for each client
+          let clientMessage = processedMessage;
+          if (isHtml) {
+            clientMessage = message.replace(/\[Name\]/g, client.name);
+          } else {
+            clientMessage = processedMessage.replace(/\[Name\]/g, client.name);
+          }
 
         const mailOptions = {
           from: {
-            name: "Trizen Ventures",
-            address: "support@trizenventures.com",
+              name: "Trizen Ventures",
+              address: "support@trizenventures.com",
           },
           to: client.email,
           subject: subject,
-          html: getSupportEmailTemplate("custom", {
+            html: getSupportEmailTemplate("custom", {
             clientName: client.name,
             subject,
-            message: clientMessage,
-            headerLogo:
-              headerLogoIndex >= 0 ? attachments[headerLogoIndex] : null,
-            attachments: attachments,
+              message: clientMessage,
+              headerLogo:
+                headerLogoIndex >= 0 ? attachments[headerLogoIndex] : null,
+              attachments: attachments,
           }),
-          text: isHtml
-            ? message.replace(/<[^>]*>/g, "").replace(/\[Name\]/g, client.name)
-            : message.replace(/\[Name\]/g, client.name),
+            text: isHtml
+              ? message.replace(/<[^>]*>/g, "").replace(/\[Name\]/g, client.name)
+              : message.replace(/\[Name\]/g, client.name),
           headers: {
-            "X-Mailer": "Trizen Ventures Support System",
-            "X-Priority": "3",
-          },
+              "X-Mailer": "Trizen Ventures Support System",
+              "X-Priority": "3",
+            },
         };
 
-        // Separate header logo (inline only) from regular attachments
-        const inlineAttachments = [];
-        const regularAttachments = [];
+          // Separate header logo (inline only) from regular attachments
+          const inlineAttachments = [];
+          const regularAttachments = [];
 
         if (attachments && attachments.length > 0) {
-          attachments.forEach((attachment, index) => {
-            if (typeof attachment === "string") {
-              // File path - regular attachment
-              regularAttachments.push({
-                filename: attachment.split("/").pop() || "attachment.pdf",
-                path: attachment,
-              });
+            attachments.forEach((attachment, index) => {
+              if (typeof attachment === "string") {
+                // File path - regular attachment
+                regularAttachments.push({
+                  filename: attachment.split("/").pop() || "attachment.pdf",
+                  path: attachment,
+                });
             } else if (attachment.content) {
-              // Base64 content
-              const filename = (attachment.filename || "").toLowerCase();
-              const contentType = (attachment.contentType || "").toLowerCase();
-              const isHeaderLogo = index === headerLogoIndex;
+                // Base64 content
+                const filename = (attachment.filename || "").toLowerCase();
+                const contentType = (attachment.contentType || "").toLowerCase();
+                const isHeaderLogo = index === headerLogoIndex;
 
-              if (isHeaderLogo) {
-                // Header logo: inline only, no filename
-                inlineAttachments.push({
-                  cid: "header-logo",
-                  content: attachment.content,
-                  encoding: attachment.encoding || "base64",
-                  contentType:
-                    attachment.contentType ||
-                    (filename.endsWith(".png")
-                      ? "image/png"
-                      : filename.endsWith(".jpg") || filename.endsWith(".jpeg")
-                      ? "image/jpeg"
-                      : filename.endsWith(".gif")
-                      ? "image/gif"
-                      : "image/png"),
-                  contentDisposition: "inline", // Mark as inline, not attachment
-                });
-              } else if (attachment.cid) {
-                // Other inline images
-                inlineAttachments.push({
-                  cid: attachment.cid,
-                  content: attachment.content,
-                  encoding: attachment.encoding || "base64",
-                  contentType:
-                    attachment.contentType ||
-                    (filename.endsWith(".png")
-                      ? "image/png"
-                      : filename.endsWith(".jpg") || filename.endsWith(".jpeg")
-                      ? "image/jpeg"
-                      : filename.endsWith(".gif")
-                      ? "image/gif"
-                      : "image/png"),
-                });
-              } else {
-                // Regular file attachment
-                regularAttachments.push({
-                  filename: attachment.filename || "attachment.pdf",
-                  content: attachment.content,
-                  encoding: attachment.encoding || "base64",
-                  contentType:
-                    attachment.contentType ||
-                    (filename.endsWith(".png")
-                      ? "image/png"
-                      : filename.endsWith(".jpg") || filename.endsWith(".jpeg")
-                      ? "image/jpeg"
-                      : filename.endsWith(".gif")
-                      ? "image/gif"
-                      : "application/pdf"),
-                });
-              }
+                if (isHeaderLogo) {
+                  // Header logo: inline only, use the attachment's CID (e.g., "trizen-logo")
+                  inlineAttachments.push({
+                    cid: attachment.cid || headerLogoCID,
+                    content: attachment.content,
+                    encoding: attachment.encoding || "base64",
+                    contentType:
+                      attachment.contentType ||
+                      (filename.endsWith(".png")
+                        ? "image/png"
+                        : filename.endsWith(".jpg") || filename.endsWith(".jpeg")
+                        ? "image/jpeg"
+                        : filename.endsWith(".gif")
+                        ? "image/gif"
+                        : "image/png"),
+                    contentDisposition: "inline", // Mark as inline, not attachment
+                  });
+                } else if (attachment.cid) {
+                  // Other inline images
+                  inlineAttachments.push({
+                    cid: attachment.cid,
+                content: attachment.content,
+                    encoding: attachment.encoding || "base64",
+                    contentType:
+                      attachment.contentType ||
+                      (filename.endsWith(".png")
+                        ? "image/png"
+                        : filename.endsWith(".jpg") || filename.endsWith(".jpeg")
+                        ? "image/jpeg"
+                        : filename.endsWith(".gif")
+                        ? "image/gif"
+                        : "image/png"),
+                  });
+                } else {
+                  // Regular file attachment
+                  regularAttachments.push({
+                    filename: attachment.filename || "attachment.pdf",
+                    content: attachment.content,
+                    encoding: attachment.encoding || "base64",
+                    contentType:
+                      attachment.contentType ||
+                      (filename.endsWith(".png")
+                        ? "image/png"
+                        : filename.endsWith(".jpg") || filename.endsWith(".jpeg")
+                        ? "image/jpeg"
+                        : filename.endsWith(".gif")
+                        ? "image/gif"
+                        : "application/pdf"),
+                  });
+                }
             } else if (attachment.path) {
-              // File path attachment
-              const filename = (
-                attachment.filename ||
-                attachment.path.split("/").pop() ||
-                ""
-              ).toLowerCase();
-              const isHeaderLogo = index === headerLogoIndex;
+                // File path attachment
+                const filename = (
+                  attachment.filename ||
+                  attachment.path.split("/").pop() ||
+                  ""
+                ).toLowerCase();
+                const isHeaderLogo = index === headerLogoIndex;
 
-              if (isHeaderLogo) {
-                // Header logo from path - read and embed inline
-                inlineAttachments.push({
-                  cid: "header-logo",
-                  path: attachment.path,
-                  contentType:
-                    attachment.contentType ||
-                    (filename.endsWith(".png")
-                      ? "image/png"
-                      : filename.endsWith(".jpg") || filename.endsWith(".jpeg")
-                      ? "image/jpeg"
-                      : filename.endsWith(".gif")
-                      ? "image/gif"
-                      : "image/png"),
-                });
-              } else if (attachment.cid) {
-                inlineAttachments.push({
-                  cid: attachment.cid,
-                  path: attachment.path,
-                });
-              } else {
-                regularAttachments.push({
-                  filename:
-                    attachment.filename ||
-                    attachment.path.split("/").pop() ||
-                    "attachment.pdf",
-                  path: attachment.path,
-                });
+                if (isHeaderLogo) {
+                  // Header logo from path - read and embed inline, use attachment's CID
+                  inlineAttachments.push({
+                    cid: attachment.cid || headerLogoCID,
+                    path: attachment.path,
+                    contentType:
+                      attachment.contentType ||
+                      (filename.endsWith(".png")
+                        ? "image/png"
+                        : filename.endsWith(".jpg") || filename.endsWith(".jpeg")
+                        ? "image/jpeg"
+                        : filename.endsWith(".gif")
+                        ? "image/gif"
+                        : "image/png"),
+                  });
+                } else if (attachment.cid) {
+                  inlineAttachments.push({
+                    cid: attachment.cid,
+                    path: attachment.path,
+                  });
+                } else {
+                  regularAttachments.push({
+                    filename:
+                      attachment.filename ||
+                      attachment.path.split("/").pop() ||
+                      "attachment.pdf",
+                    path: attachment.path,
+                  });
+                }
+              } else if (attachment.url) {
+                const isHeaderLogo = index === headerLogoIndex;
+              
+                // Only add URL attachments if they are NOT the header logo
+                // Header logo URLs are handled directly in the HTML template
+                if (!isHeaderLogo) {
+                  regularAttachments.push({
+                    filename: attachment.filename || "attachment",
+                    path: attachment.url,
+                    contentType: attachment.contentType,
+                  });
               }
-            } else if (attachment.url) {
-              const isHeaderLogo = index === headerLogoIndex;
-
-              // Only add URL attachments if they are NOT the header logo
-              // Header logo URLs are handled directly in the HTML template
-              if (!isHeaderLogo) {
-                regularAttachments.push({
-                  filename: attachment.filename || "attachment",
-                  path: attachment.url,
-                  contentType: attachment.contentType,
-                });
               }
-            }
-          });
-        }
+            });
+          }
 
-        // Combine inline and regular attachments
-        const allAttachments = [...inlineAttachments, ...regularAttachments];
-        if (allAttachments.length > 0) {
-          mailOptions.attachments = allAttachments;
+          // Combine inline and regular attachments
+          const allAttachments = [...inlineAttachments, ...regularAttachments];
+          if (allAttachments.length > 0) {
+            mailOptions.attachments = allAttachments;
         }
 
         const info = await transporter.sendMail(mailOptions);
-        results.push({
+          
+          console.log(
+            `✅ Bulk email sent successfully to ${client.email}`
+          );
+
+          return {
           email: client.email,
           success: true,
-          messageId: info.messageId,
-        });
-
-        console.log(
-          `✅ Bulk email with attachments sent successfully to ${client.email}`
-        );
-
-        // Rate limiting - wait 500ms between emails (reduced from 1000ms for faster sending)
-        // ⚠️ WARNING: Removing this delay entirely may cause SMTP server rejections
-        // Gmail allows ~100 emails/day for free accounts, ~2000/day for Workspace
-        await new Promise((resolve) => setTimeout(resolve, 500));
+            messageId: info.messageId,
+          };
       } catch (error) {
         console.error(`❌ Failed to send email to ${client.email}:`, error);
-        results.push({
+          return {
           email: client.email,
           success: false,
-          error: error.message,
-        });
-      }
-    }
+            error: error.message,
+          };
+        }
+      });
 
+      // Wait for batch to complete
+      const batchResults = await Promise.all(batchPromises);
+      results.push(...batchResults);
+
+      // Delay between batches (respects Microsoft's 30/min limit)
+      if (i + BATCH_SIZE < clients.length) {
+        await new Promise((resolve) => setTimeout(resolve, DELAY_BETWEEN_BATCHES));
+      }
+
+      // Progress logging
+      const sent = results.filter((r) => r.success).length;
+      const failed = results.filter((r) => !r.success).length;
+      const progress = ((i + batch.length) / clients.length * 100).toFixed(1);
+      console.log(`📧 Progress: ${sent} sent, ${failed} failed (${i + batch.length}/${clients.length} - ${progress}%)`);
+    }
+    
     return {
       success: true,
       results,
@@ -1619,19 +1681,19 @@ export const sendBulkEmails = async (
 export const testEmailConfig = async () => {
   try {
     const transporter = createTransporter();
-
+    
     // Verify connection
     await transporter.verify();
-
+    
     console.log("✅ Support email configuration test passed");
-    return {
-      success: true,
+    return { 
+      success: true, 
       message: "Support email configuration is valid and ready to send emails",
       timestamp: new Date().toISOString(),
     };
   } catch (error) {
     console.error("❌ Support email configuration test failed:", error);
-
+    
     let errorDetails = "Unknown error";
     if (error.code === "EAUTH") {
       errorDetails =
@@ -1642,9 +1704,9 @@ export const testEmailConfig = async () => {
       errorDetails =
         "Connection timeout. Check your internet connection and firewall settings.";
     }
-
-    return {
-      success: false,
+    
+    return { 
+      success: false, 
       error: error.message,
       details: errorDetails,
       timestamp: new Date().toISOString(),

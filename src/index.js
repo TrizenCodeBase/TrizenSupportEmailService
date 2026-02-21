@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import { createServer } from "http";
 import healthRoutes from "./routes/health.js";
 import supportEmailRoutes from "./routes/supportEmail.js";
+import bulkRoutes from "./routes/bulk.js";
 
 // Load environment variables
 dotenv.config();
@@ -15,15 +16,33 @@ const server = createServer(app);
 const PORT = process.env.PORT || 3002;
 
 // Allowed CORS origins
-const allowedOrigins = [
+const defaultOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
+  "http://localhost:3002",
+  "http://localhost:3003",
   "http://localhost:5000",
   "http://localhost:5001",
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://192.168.1.8:3001",
+  "https://careers.trizenventures.com",
+  "https://careersadminfrontend.llp.trizenventures.com",
+];
+const allowedOrigins = [
+  ...defaultOrigins,
   ...(process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(",")
+    ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
     : []),
 ].filter(Boolean);
+
+// In development, allow LAN origins (192.168.x.x, 10.x.x.x)
+const isDev = process.env.NODE_ENV !== "production";
+const lanOriginRegex = /^https?:\/\/(192\.168\.\d{1,3}\.\d{1,3}|10\.\d{1,3}\.\d{1,3}\.\d{1,3})(:\d+)?$/;
+
+const isOriginAllowed = (origin) =>
+  allowedOrigins.includes(origin) ||
+  (isDev && origin && lanOriginRegex.test(origin));
 
 console.log("🌐 Allowed CORS origins:", allowedOrigins);
 
@@ -33,8 +52,7 @@ app.use((req, res, next) => {
     const origin = req.headers.origin;
     const reqHeaders = req.headers["access-control-request-headers"];
 
-    // ALWAYS set Access-Control-Allow-Origin for preflight (required by CORS spec)
-    if (origin && allowedOrigins.includes(origin)) {
+    if (origin && isOriginAllowed(origin)) {
       res.setHeader("Access-Control-Allow-Origin", origin);
       res.setHeader("Access-Control-Allow-Credentials", "true");
       res.setHeader(
@@ -46,8 +64,8 @@ app.use((req, res, next) => {
         "GET, POST, PUT, DELETE, OPTIONS, PATCH"
       );
       return res.sendStatus(200);
-    } else if (!origin) {
-      // No origin header (e.g., Postman, curl)
+    }
+    if (!origin) {
       res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader(
         "Access-Control-Allow-Headers",
@@ -59,7 +77,6 @@ app.use((req, res, next) => {
       );
       return res.sendStatus(200);
     }
-    // Origin not allowed - still return 200 for preflight (browser will block actual request)
     return res.sendStatus(200);
   }
   next();
@@ -69,13 +86,8 @@ app.use((req, res, next) => {
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
-
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
-      }
-
+      if (isOriginAllowed(origin)) return callback(null, true);
       return callback(null, false);
     },
     credentials: true,
@@ -170,6 +182,7 @@ app.use(apiKeyMiddleware);
 // Routes
 app.use("/", healthRoutes);
 app.use("/api/support", supportEmailRoutes);
+app.use("/api/bulk", bulkRoutes);
 
 // 404 handler
 app.use((req, res) => {
